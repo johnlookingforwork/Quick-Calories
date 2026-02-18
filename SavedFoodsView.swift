@@ -460,34 +460,46 @@ struct LogSavedFoodView: View {
                         .labelsHidden()
                 }
                 
-                Section("Total Nutrition") {
-                    HStack {
-                        Text("Calories")
-                        Spacer()
-                        Text("\(calculatedValues.calories) cal")
-                            .fontWeight(.semibold)
+                Section {
+                    VStack(spacing: 16) {
+                        // Calories
+                        HStack {
+                            Image(systemName: "flame.fill")
+                                .foregroundStyle(.orange)
+                            Text("Calories")
+                                .font(.headline)
+                            Spacer()
+                            Text("\(calculatedValues.calories)")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                        }
+                        
+                        Divider()
+                        
+                        // Macros with circles
+                        HStack(spacing: 20) {
+                            MacroCircle(
+                                name: "Protein",
+                                value: calculatedValues.protein,
+                                color: .red
+                            )
+                            
+                            MacroCircle(
+                                name: "Carbs",
+                                value: calculatedValues.carbs,
+                                color: .blue
+                            )
+                            
+                            MacroCircle(
+                                name: "Fat",
+                                value: calculatedValues.fat,
+                                color: .yellow
+                            )
+                        }
                     }
-                    
-                    HStack {
-                        Text("Protein")
-                        Spacer()
-                        Text("\(calculatedValues.protein, specifier: "%.1f")g")
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("Carbs")
-                        Spacer()
-                        Text("\(calculatedValues.carbs, specifier: "%.1f")g")
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("Fat")
-                        Spacer()
-                        Text("\(calculatedValues.fat, specifier: "%.1f")g")
-                            .foregroundStyle(.secondary)
-                    }
+                    .padding(.vertical, 8)
+                } header: {
+                    Text("Total Nutrition")
                 }
             }
             .navigationTitle("Log Food")

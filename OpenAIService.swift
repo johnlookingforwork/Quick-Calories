@@ -46,7 +46,7 @@ enum OpenAIError: LocalizedError {
 actor OpenAIService {
     static let shared = OpenAIService()
     
-    private let proxyURL = "https://calorie-app-proxy.vercel.app/api/proxy"
+    private let proxyURL = Secrets.proxyURL
     private let appSecret = Secrets.appSecret
     
     private init() {}
@@ -81,7 +81,7 @@ actor OpenAIService {
         var request = URLRequest(url: URL(string: proxyURL)!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(sessionToken, forHTTPHeaderField: "x-app-secret")
+        request.setValue(appSecret, forHTTPHeaderField: "x-app-secret")
         request.httpBody = jsonData
         
         // If user provided their own API key, send it

@@ -92,6 +92,9 @@ iOSInjectionProject/
 ## macOS
 .DS_Store
 
+# Claude-generated docs
+claude-docs/
+
 # SECRETS - DO NOT COMMIT
 Config.xcconfig
 Secrets.plist
