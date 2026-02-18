@@ -368,7 +368,9 @@ struct MonthlyHistoryView: View {
             }
         }
         .sheet(isPresented: $showSavedFoods) {
-            SavedFoodsView()
+            NavigationStack {
+                SavedFoodsView()
+            }
         }
         .sheet(isPresented: $showWorkoutLog) {
             if let date = selectedDate {

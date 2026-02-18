@@ -216,7 +216,9 @@ struct DashboardView: View {
                 AILogView(date: Date())
             }
             .sheet(isPresented: $showSavedFoods) {
-                SavedFoodsView()
+                NavigationStack {
+                    SavedFoodsView()
+                }
             }
             .sheet(isPresented: $showWorkoutLog) {
                 LogWorkoutView(date: Date())
