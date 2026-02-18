@@ -44,14 +44,13 @@ struct SavedFoodsView: View {
                             .onTapGesture {
                                 foodToLog = food
                             }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     deleteFood(food)
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
-                            }
-                            .swipeActions(edge: .leading) {
+                                
                                 Button {
                                     foodToEdit = food
                                 } label: {
@@ -80,7 +79,7 @@ struct SavedFoodsView: View {
                     Text("Saved Foods")
                         .font(.headline)
                     if !savedFoods.isEmpty {
-                        Text("Tap to log • Swipe right to edit")
+                        Text("Tap to log • Swipe to edit")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
