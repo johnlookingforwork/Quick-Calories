@@ -132,28 +132,29 @@ struct MonthlyHistoryView: View {
             
             // Calendar grid
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 12) {
-                    ForEach(daysInMonth.indices, id: \.self) { index in
-                        if let date = daysInMonth[index] {
-                            DayCell(
-                                date: date,
-                                isSelected: selectedDate != nil && calendar.isDate(date, inSameDayAs: selectedDate!),
-                                isToday: calendar.isDateInToday(date),
-                                metGoal: metGoalForDate(date),
-                                hasEntries: !entriesForDate(date).isEmpty
-                            )
-                            .onTapGesture {
-                                withAnimation(.spring(response: 0.3)) {
-                                    selectedDate = date
+                VStack(spacing: 0) {
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(daysInMonth.indices, id: \.self) { index in
+                            if let date = daysInMonth[index] {
+                                DayCell(
+                                    date: date,
+                                    isSelected: selectedDate != nil && calendar.isDate(date, inSameDayAs: selectedDate!),
+                                    isToday: calendar.isDateInToday(date),
+                                    metGoal: metGoalForDate(date),
+                                    hasEntries: !entriesForDate(date).isEmpty
+                                )
+                                .onTapGesture {
+                                    withAnimation(.spring(response: 0.3)) {
+                                        selectedDate = date
+                                    }
                                 }
+                            } else {
+                                Color.clear
+                                    .frame(height: 50)
                             }
-                        } else {
-                            Color.clear
-                                .frame(height: 50)
                         }
                     }
-                }
-                .padding()
+                    .padding()
                 
                 // Selected day details
                 if let selected = selectedDate {
@@ -238,28 +239,92 @@ struct MonthlyHistoryView: View {
                             
                             List {
                                 ForEach(entries.sorted(by: { $0.timestamp > $1.timestamp })) { entry in
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 12) {
+                                        // Food icon
+                                        Image(systemName: "fork.knife.circle.fill")
+                                            .font(.title2)
+                                            .foregroundStyle(.orange.gradient)
+                                        
+                                        VStack(alignment: .leading, spacing: 6) {
                                             Text(entry.foodName)
                                                 .font(.body)
-                                                .fontWeight(.medium)
+                                                .fontWeight(.semibold)
                                             
-                                            Text(entry.timestamp, style: .time)
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
+                                            // Calories with flame icon
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "flame.fill")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.orange)
+                                                Text("\(entry.calories) cal")
+                                                    .font(.subheadline)
+                                                    .fontWeight(.medium)
+                                            }
+                                            
+                                            // Macros with icons
+                                            HStack(spacing: 12) {
+                                                // Protein
+                                                HStack(spacing: 3) {
+                                                    Image(systemName: "circle.fill")
+                                                        .font(.system(size: 6))
+                                                        .foregroundStyle(.red)
+                                                    Text("\(Int(entry.protein))g")
+                                                        .font(.caption)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                                
+                                                // Carbs
+                                                HStack(spacing: 3) {
+                                                    Image(systemName: "circle.fill")
+                                                        .font(.system(size: 6))
+                                                        .foregroundStyle(.blue)
+                                                    Text("\(Int(entry.carbs))g")
+                                                        .font(.caption)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                                
+                                                // Fat
+                                                HStack(spacing: 3) {
+                                                    Image(systemName: "circle.fill")
+                                                        .font(.system(size: 6))
+                                                        .foregroundStyle(.yellow)
+                                                    Text("\(Int(entry.fat))g")
+                                                        .font(.caption)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                            }
+                                            
+                                            if entry.servings != 1.0 {
+                                                HStack(spacing: 3) {
+                                                    Image(systemName: "number.circle.fill")
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.secondary)
+                                                    Text("\(entry.servings, specifier: "%.1f") servings")
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                            }
                                         }
                                         
                                         Spacer()
                                         
-                                        Text("\(entry.calories) cal")
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
+                                        // Time on the right
+                                        VStack(alignment: .trailing, spacing: 2) {
+                                            Text(entry.timestamp, style: .time)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                            
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption2)
+                                                .foregroundStyle(.tertiary)
+                                        }
                                     }
-                                    .padding(.vertical, 8)
-                                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                                    .listRowBackground(Color(uiColor: .secondarySystemBackground))
+                                    .padding()
+                                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                    .listRowBackground(
+                                        Color(uiColor: .secondarySystemBackground)
+                                            .cornerRadius(12)
+                                    )
                                     .listRowSeparator(.hidden)
-                                    .cornerRadius(8)
                                     .onTapGesture {
                                         selectedEntry = entry
                                     }
@@ -281,7 +346,7 @@ struct MonthlyHistoryView: View {
                                 }
                             }
                             .listStyle(.plain)
-                            .frame(height: CGFloat(entries.count) * 60)
+                            .frame(height: CGFloat(entries.count) * 130)
                             .scrollDisabled(true)
                         }
                         
@@ -294,28 +359,49 @@ struct MonthlyHistoryView: View {
                             
                             List {
                                 ForEach(workouts.sorted(by: { $0.timestamp > $1.timestamp })) { workout in
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 12) {
+                                        // Workout icon
+                                        Image(systemName: "figure.run.circle.fill")
+                                            .font(.title2)
+                                            .foregroundStyle(.green.gradient)
+                                        
+                                        VStack(alignment: .leading, spacing: 6) {
                                             Text(workout.workoutName)
                                                 .font(.body)
-                                                .fontWeight(.medium)
+                                                .fontWeight(.semibold)
                                             
-                                            Text(workout.timestamp, style: .time)
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
+                                            // Calories burned
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "flame.fill")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.green)
+                                                Text("\(workout.caloriesBurned) cal burned")
+                                                    .font(.subheadline)
+                                                    .fontWeight(.medium)
+                                                    .foregroundStyle(.green)
+                                            }
                                         }
                                         
                                         Spacer()
                                         
-                                        Text("-\(workout.caloriesBurned) cal")
-                                            .font(.subheadline)
-                                            .foregroundStyle(.green)
+                                        // Time on the right
+                                        VStack(alignment: .trailing, spacing: 2) {
+                                            Text(workout.timestamp, style: .time)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                            
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption2)
+                                                .foregroundStyle(.tertiary)
+                                        }
                                     }
-                                    .padding(.vertical, 8)
-                                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                                    .listRowBackground(Color.green.opacity(0.1))
+                                    .padding()
+                                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                    .listRowBackground(
+                                        Color.green.opacity(0.1)
+                                            .cornerRadius(12)
+                                    )
                                     .listRowSeparator(.hidden)
-                                    .cornerRadius(8)
                                     .onTapGesture {
                                         selectedWorkout = workout
                                     }
@@ -337,7 +423,7 @@ struct MonthlyHistoryView: View {
                                 }
                             }
                             .listStyle(.plain)
-                            .frame(height: CGFloat(workouts.count) * 60)
+                            .frame(height: CGFloat(workouts.count) * 100)
                             .scrollDisabled(true)
                         }
                         
@@ -352,6 +438,13 @@ struct MonthlyHistoryView: View {
                     .padding()
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
+                
+                // Bottom padding to ensure FAB doesn't cover swipe actions
+                if selectedDate != nil {
+                    Color.clear
+                        .frame(height: 80)
+                }
+            }
             }
         }
         .navigationTitle("History")
