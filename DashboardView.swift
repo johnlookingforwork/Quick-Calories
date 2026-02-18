@@ -19,6 +19,7 @@ struct DashboardView: View {
     @State private var selectedEntry: FoodEntry?
     @State private var selectedWorkout: WorkoutEntry?
     @State private var navigateToHistory = false
+    @State private var navigateToSettings = false
     @State private var selectedHistoryDate: Date?
     
     private var todayEntries: [FoodEntry] {
@@ -77,6 +78,16 @@ struct DashboardView: View {
                         )
                     )
                     .padding(.horizontal)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 30, coordinateSpace: .local)
+                            .onEnded { value in
+                                // Detect swipe left
+                                if value.translation.width < -50 && abs(value.translation.height) < 100 {
+                                    navigateToSettings = true
+                                }
+                            }
+                    )
                     
                     // Today's Meals
                     VStack(alignment: .leading, spacing: 12) {
@@ -189,6 +200,9 @@ struct DashboardView: View {
                     MonthlyHistoryView(initialDate: date)
                 }
             }
+            .navigationDestination(isPresented: $navigateToSettings) {
+                SettingsView()
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
@@ -293,13 +307,32 @@ struct DailyProgressView: View {
     var body: some View {
         VStack(spacing: 20) {
             VStack(spacing: 8) {
-                Text("\(caloriesRemaining)")
-                    .font(.system(size: 56, weight: .bold, design: .rounded))
-                    .foregroundStyle(caloriesRemaining >= 0 ? Color.primary : Color.red)
-                
-                Text("calories remaining")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                ZStack {
+                    // Center content
+                    VStack(spacing: 4) {
+                        Text("\(caloriesRemaining)")
+                            .font(.system(size: 56, weight: .bold, design: .rounded))
+                            .foregroundStyle(caloriesRemaining >= 0 ? Color.primary : Color.red)
+                        
+                        Text("calories remaining")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    // Swipe hint (positioned absolutely on the right)
+                    HStack {
+                        Spacer()
+                        VStack {
+                            Image(systemName: "chevron.left")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            Text("edit")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.trailing, 4)
+                    }
+                }
                 
                 if workoutCalories > 0 {
                     HStack(spacing: 4) {
