@@ -192,45 +192,61 @@ struct AddSavedFoodView: View {
                 
                 Section("Nutrition (per serving)") {
                     HStack {
+                        Image(systemName: "flame.fill")
+                            .foregroundStyle(.orange)
+                            .frame(width: 24)
                         Text("Calories")
                         Spacer()
                         TextField("0", text: $calories)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
+                            .frame(width: 80)
+                            .fontWeight(.semibold)
                         Text("cal")
                             .foregroundStyle(.secondary)
                     }
                     
                     HStack {
+                        Image(systemName: "circle.fill")
+                            .foregroundStyle(.red)
+                            .frame(width: 24)
                         Text("Protein")
                         Spacer()
                         TextField("0", text: $protein)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
+                            .frame(width: 80)
+                            .fontWeight(.semibold)
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
                     
                     HStack {
+                        Image(systemName: "circle.fill")
+                            .foregroundStyle(.blue)
+                            .frame(width: 24)
                         Text("Carbs")
                         Spacer()
                         TextField("0", text: $carbs)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
+                            .frame(width: 80)
+                            .fontWeight(.semibold)
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
                     
                     HStack {
+                        Image(systemName: "circle.fill")
+                            .foregroundStyle(.yellow)
+                            .frame(width: 24)
                         Text("Fat")
                         Spacer()
                         TextField("0", text: $fat)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
+                            .frame(width: 80)
+                            .fontWeight(.semibold)
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
@@ -330,45 +346,61 @@ struct EditSavedFoodView: View {
                 
                 Section("Nutrition (per serving)") {
                     HStack {
+                        Image(systemName: "flame.fill")
+                            .foregroundStyle(.orange)
+                            .frame(width: 24)
                         Text("Calories")
                         Spacer()
                         TextField("0", text: $calories)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
+                            .frame(width: 80)
+                            .fontWeight(.semibold)
                         Text("cal")
                             .foregroundStyle(.secondary)
                     }
                     
                     HStack {
+                        Image(systemName: "circle.fill")
+                            .foregroundStyle(.red)
+                            .frame(width: 24)
                         Text("Protein")
                         Spacer()
                         TextField("0", text: $protein)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
+                            .frame(width: 80)
+                            .fontWeight(.semibold)
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
                     
                     HStack {
+                        Image(systemName: "circle.fill")
+                            .foregroundStyle(.blue)
+                            .frame(width: 24)
                         Text("Carbs")
                         Spacer()
                         TextField("0", text: $carbs)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
+                            .frame(width: 80)
+                            .fontWeight(.semibold)
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
                     
                     HStack {
+                        Image(systemName: "circle.fill")
+                            .foregroundStyle(.yellow)
+                            .frame(width: 24)
                         Text("Fat")
                         Spacer()
                         TextField("0", text: $fat)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 100)
+                            .frame(width: 80)
+                            .fontWeight(.semibold)
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
