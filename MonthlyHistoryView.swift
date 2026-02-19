@@ -16,6 +16,7 @@ struct MonthlyHistoryView: View {
     @State private var currentMonth = Date()
     @State private var showAILog = false
     @State private var showSavedFoods = false
+    @State private var showManualAdd = false
     @State private var showWorkoutLog = false
     @State private var selectedEntry: FoodEntry?
     @State private var selectedWorkout: WorkoutEntry?
@@ -465,6 +466,11 @@ struct MonthlyHistoryView: View {
                 SavedFoodsView()
             }
         }
+        .sheet(isPresented: $showManualAdd) {
+            if let date = selectedDate {
+                ManualAddView(date: date)
+            }
+        }
         .sheet(isPresented: $showWorkoutLog) {
             if let date = selectedDate {
                 LogWorkoutView(date: date)
@@ -490,6 +496,12 @@ struct MonthlyHistoryView: View {
                         showSavedFoods = true
                     } label: {
                         Label("Saved Foods", systemImage: "book")
+                    }
+                    
+                    Button {
+                        showManualAdd = true
+                    } label: {
+                        Label("Manual Add", systemImage: "keyboard")
                     }
                     
                     Button {
