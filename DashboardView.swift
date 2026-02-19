@@ -14,8 +14,8 @@ struct DashboardView: View {
     @Query private var allWorkouts: [WorkoutEntry]
     @State private var showPaywall = false
     @State private var showAILog = false
-    @State private var showSavedFoods = false
     @State private var showManualAdd = false
+    @State private var showSavedFoods = false
     @State private var showWorkoutLog = false
     @State private var selectedEntry: FoodEntry?
     @State private var selectedWorkout: WorkoutEntry?
@@ -230,13 +230,13 @@ struct DashboardView: View {
             .sheet(isPresented: $showAILog) {
                 AILogView(date: Date())
             }
+            .sheet(isPresented: $showManualAdd) {
+                ManualAddView(date: Date())
+            }
             .sheet(isPresented: $showSavedFoods) {
                 NavigationStack {
                     SavedFoodsView()
                 }
-            }
-            .sheet(isPresented: $showManualAdd) {
-                ManualAddView(date: Date())
             }
             .sheet(isPresented: $showWorkoutLog) {
                 LogWorkoutView(date: Date())
@@ -254,15 +254,15 @@ struct DashboardView: View {
                     }
                     
                     Button {
-                        showSavedFoods = true
+                        showManualAdd = true
                     } label: {
-                        Label("Saved Foods", systemImage: "book")
+                        Label("Manual Add", systemImage: "plus.circle")
                     }
                     
                     Button {
-                        showManualAdd = true
+                        showSavedFoods = true
                     } label: {
-                        Label("Manual Add", systemImage: "keyboard")
+                        Label("Saved Foods", systemImage: "book")
                     }
                     
                     Button {

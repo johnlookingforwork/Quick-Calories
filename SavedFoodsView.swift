@@ -164,11 +164,6 @@ struct AddSavedFoodView: View {
     @State private var protein = ""
     @State private var carbs = ""
     @State private var fat = ""
-    @FocusState private var focusedField: Field?
-    
-    enum Field {
-        case foodName, servingSize, unit, calories, protein, carbs, fat
-    }
     
     private var isValid: Bool {
         !foodName.isEmpty &&
@@ -180,84 +175,62 @@ struct AddSavedFoodView: View {
         Double(fat) != nil
     }
     
-    private var hasUnsavedData: Bool {
-        !foodName.isEmpty || !servingSize.isEmpty || !unit.isEmpty ||
-        !calories.isEmpty || !protein.isEmpty || !carbs.isEmpty || !fat.isEmpty
-    }
-    
     var body: some View {
         NavigationStack {
             Form {
                 Section("Food Details") {
                     TextField("Food Name", text: $foodName)
-                        .focused($focusedField, equals: .foodName)
                     
                     HStack {
                         TextField("Serving Size", text: $servingSize)
                             .keyboardType(.decimalPad)
-                            .focused($focusedField, equals: .servingSize)
                         
-                        TextField("Unit (e.g., cup, oz)", text: $unit)
-                            .focused($focusedField, equals: .unit)
+                        TextField("Unit", text: $unit)
+                            .frame(width: 80)
                     }
                 }
                 
                 Section("Nutrition (per serving)") {
                     HStack {
-                        Image(systemName: "flame.fill")
-                            .foregroundStyle(.orange)
                         Text("Calories")
                         Spacer()
                         TextField("0", text: $calories)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 100)
-                            .focused($focusedField, equals: .calories)
                         Text("cal")
                             .foregroundStyle(.secondary)
                     }
                     
                     HStack {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.red)
                         Text("Protein")
                         Spacer()
                         TextField("0", text: $protein)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 100)
-                            .focused($focusedField, equals: .protein)
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
                     
                     HStack {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.blue)
                         Text("Carbs")
                         Spacer()
                         TextField("0", text: $carbs)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 100)
-                            .focused($focusedField, equals: .carbs)
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
                     
                     HStack {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.yellow)
                         Text("Fat")
                         Spacer()
                         TextField("0", text: $fat)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 100)
-                            .focused($focusedField, equals: .fat)
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
@@ -266,15 +239,7 @@ struct AddSavedFoodView: View {
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Add Saved Food")
             .navigationBarTitleDisplayMode(.inline)
-            .interactiveDismissDisabled(hasUnsavedData)
             .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") {
-                        focusedField = nil
-                    }
-                }
-                
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()
@@ -287,9 +252,6 @@ struct AddSavedFoodView: View {
                     }
                     .disabled(!isValid)
                 }
-            }
-            .onAppear {
-                focusedField = .foodName
             }
         }
     }
@@ -329,11 +291,6 @@ struct EditSavedFoodView: View {
     @State private var protein: String
     @State private var carbs: String
     @State private var fat: String
-    @FocusState private var focusedField: Field?
-    
-    enum Field {
-        case foodName, servingSize, unit, calories, protein, carbs, fat
-    }
     
     init(food: SavedFood) {
         self.food = food
@@ -356,89 +313,62 @@ struct EditSavedFoodView: View {
         Double(fat) != nil
     }
     
-    private var hasChanges: Bool {
-        foodName != food.foodName ||
-        servingSize != String(food.servingSize) ||
-        unit != food.unit ||
-        calories != String(food.calories) ||
-        protein != String(food.protein) ||
-        carbs != String(food.carbs) ||
-        fat != String(food.fat)
-    }
-    
     var body: some View {
         NavigationStack {
             Form {
                 Section("Food Details") {
                     TextField("Food Name", text: $foodName)
-                        .focused($focusedField, equals: .foodName)
                     
                     HStack {
                         TextField("Serving Size", text: $servingSize)
                             .keyboardType(.decimalPad)
-                            .focused($focusedField, equals: .servingSize)
                         
-                        TextField("Unit (e.g., cup, oz)", text: $unit)
-                            .focused($focusedField, equals: .unit)
+                        TextField("Unit", text: $unit)
+                            .frame(width: 80)
                     }
                 }
                 
                 Section("Nutrition (per serving)") {
                     HStack {
-                        Image(systemName: "flame.fill")
-                            .foregroundStyle(.orange)
                         Text("Calories")
                         Spacer()
                         TextField("0", text: $calories)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 100)
-                            .focused($focusedField, equals: .calories)
                         Text("cal")
                             .foregroundStyle(.secondary)
                     }
                     
                     HStack {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.red)
                         Text("Protein")
                         Spacer()
                         TextField("0", text: $protein)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 100)
-                            .focused($focusedField, equals: .protein)
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
                     
                     HStack {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.blue)
                         Text("Carbs")
                         Spacer()
                         TextField("0", text: $carbs)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 100)
-                            .focused($focusedField, equals: .carbs)
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
                     
                     HStack {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.yellow)
                         Text("Fat")
                         Spacer()
                         TextField("0", text: $fat)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 100)
-                            .focused($focusedField, equals: .fat)
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
@@ -447,15 +377,7 @@ struct EditSavedFoodView: View {
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Edit Saved Food")
             .navigationBarTitleDisplayMode(.inline)
-            .interactiveDismissDisabled(hasChanges)
             .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") {
-                        focusedField = nil
-                    }
-                }
-                
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()

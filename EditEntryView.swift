@@ -9,9 +9,12 @@ import SwiftUI
 
 struct EditEntryView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     let entry: FoodEntry
     
     @State private var servings: Double
+    @State private var showingSaveToSavedFoods = false
+    @State private var didSaveFood = false
     
     private let originalCalories: Int
     private let originalProtein: Double
@@ -100,6 +103,31 @@ struct EditEntryView: View {
                 } header: {
                     Text("Total Nutrition")
                 }
+                
+                Section {
+                    Button {
+                        showingSaveToSavedFoods = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "book.fill")
+                            Text("Add to Saved Foods")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    if didSaveFood {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            Text("Saved for quick logging later!")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } footer: {
+                    Text("Save this food for quick logging without AI in the future.")
+                }
             }
             .navigationTitle("Edit Entry")
             .navigationBarTitleDisplayMode(.inline)
@@ -115,6 +143,16 @@ struct EditEntryView: View {
                         saveChanges()
                     }
                 }
+            }
+            .sheet(isPresented: $showingSaveToSavedFoods) {
+                SaveToSavedFoodsView(
+                    foodName: entry.foodName,
+                    calories: originalCalories,
+                    protein: originalProtein,
+                    carbs: originalCarbs,
+                    fat: originalFat,
+                    didSave: $didSaveFood
+                )
             }
         }
     }
