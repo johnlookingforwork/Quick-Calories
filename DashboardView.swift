@@ -393,8 +393,14 @@ struct MacroProgressView: View {
     let target: Double
     let color: Color
     
+    @State private var isFlipped = false
+    
     private var progress: Double {
         current / target
+    }
+    
+    private var remaining: Double {
+        max(target - current, 0)
     }
     
     var body: some View {
@@ -404,6 +410,7 @@ struct MacroProgressView: View {
                 .foregroundStyle(.secondary)
             
             ZStack {
+                // Progress ring (background)
                 Circle()
                     .stroke(color.opacity(0.2), lineWidth: 6)
                 
@@ -411,17 +418,66 @@ struct MacroProgressView: View {
                     .trim(from: 0, to: min(progress, 1.0))
                     .stroke(color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                     .rotationEffect(.degrees(-90))
+                    .animation(.easeInOut(duration: 0.3), value: progress)
                 
+                // Front side - Fraction style (current/target)
+                VStack(spacing: 1) {
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text("\(Int(current))")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.primary)
+                        Text("g")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Rectangle()
+                        .fill(color.opacity(0.6))
+                        .frame(width: 35, height: 1.5)
+                    
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text("\(Int(target))")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Text("g")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .opacity(isFlipped ? 0 : 1)
+                .rotation3DEffect(
+                    .degrees(isFlipped ? 90 : 0),
+                    axis: (x: 0, y: 1, z: 0)
+                )
+                
+                // Back side - Remaining grams
                 VStack(spacing: 2) {
-                    Text("\(Int(current))")
+                    Text("\(Int(remaining))")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(remaining > 0 ? color : .green)
+                    
+                    Text("left")
                         .font(.caption)
-                        .fontWeight(.semibold)
-                    Text("\(Int(target))g")
-                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                .opacity(isFlipped ? 1 : 0)
+                .rotation3DEffect(
+                    .degrees(isFlipped ? 0 : -90),
+                    axis: (x: 0, y: 1, z: 0)
+                )
             }
             .frame(width: 80, height: 80)
+            .contentShape(Circle())
+            .onTapGesture {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                    isFlipped.toggle()
+                }
+                
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
+            }
         }
         .frame(maxWidth: .infinity)
     }
