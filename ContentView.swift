@@ -14,8 +14,10 @@ struct ContentView: View {
     var body: some View {
         DashboardView()
             .sheet(isPresented: $showOnboarding) {
-                OnboardingView()
-                    .interactiveDismissDisabled()
+                OnboardingView {
+                    showOnboarding = false
+                }
+                .interactiveDismissDisabled()
             }
     }
 }

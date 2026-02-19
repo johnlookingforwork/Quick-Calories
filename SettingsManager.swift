@@ -52,6 +52,55 @@ final class SettingsManager {
         }
     }
     
+    // Profile data for recalculation
+    var userAge: Int = 0 {
+        didSet {
+            UserDefaults.standard.set(userAge, forKey: "userAge")
+        }
+    }
+    
+    var userWeight: Double = 0.0 {
+        didSet {
+            UserDefaults.standard.set(userWeight, forKey: "userWeight")
+        }
+    }
+    
+    var userHeight: Double = 0.0 {
+        didSet {
+            UserDefaults.standard.set(userHeight, forKey: "userHeight")
+        }
+    }
+    
+    var userGender: String = Gender.notSpecified.rawValue {
+        didSet {
+            UserDefaults.standard.set(userGender, forKey: "userGender")
+        }
+    }
+    
+    var activityLevel: String = ActivityLevel.moderate.rawValue {
+        didSet {
+            UserDefaults.standard.set(activityLevel, forKey: "activityLevel")
+        }
+    }
+    
+    var goalType: String = Goal.maintain.rawValue {
+        didSet {
+            UserDefaults.standard.set(goalType, forKey: "goalType")
+        }
+    }
+    
+    var macroSplitType: String = MacroSplit.balanced.rawValue {
+        didSet {
+            UserDefaults.standard.set(macroSplitType, forKey: "macroSplitType")
+        }
+    }
+    
+    var useMetricSystem: Bool = false {
+        didSet {
+            UserDefaults.standard.set(useMetricSystem, forKey: "useMetricSystem")
+        }
+    }
+    
     // Free tier tracking
     var dailyAIRequestCount: Int = 0 {
         didSet {
@@ -90,6 +139,22 @@ final class SettingsManager {
         self.dailyAIRequestCount = UserDefaults.standard.integer(forKey: "dailyAIRequestCount")
         self.lastRequestResetDate = UserDefaults.standard.object(forKey: "lastRequestResetDate") as? Date
         self.hasActiveSubscription = UserDefaults.standard.bool(forKey: "hasActiveSubscription")
+        
+        // Load profile data
+        self.userAge = UserDefaults.standard.integer(forKey: "userAge")
+        self.userWeight = UserDefaults.standard.double(forKey: "userWeight")
+        self.userHeight = UserDefaults.standard.double(forKey: "userHeight")
+        self.userGender = UserDefaults.standard.string(forKey: "userGender") ?? Gender.notSpecified.rawValue
+        self.activityLevel = UserDefaults.standard.string(forKey: "activityLevel") ?? ActivityLevel.moderate.rawValue
+        self.goalType = UserDefaults.standard.string(forKey: "goalType") ?? Goal.maintain.rawValue
+        self.macroSplitType = UserDefaults.standard.string(forKey: "macroSplitType") ?? MacroSplit.balanced.rawValue
+        self.useMetricSystem = UserDefaults.standard.bool(forKey: "useMetricSystem")
+        
+        // Migration: If user has custom targets but hasn't "completed onboarding",
+        // mark them as having completed it to skip onboarding for existing users
+        if !self.hasCompletedOnboarding && savedCalories > 0 {
+            self.hasCompletedOnboarding = true
+        }
     }
     
     func checkAndResetDailyCount() {
@@ -120,5 +185,36 @@ final class SettingsManager {
     
     func incrementAIRequestCount() {
         dailyAIRequestCount += 1
+    }
+    
+    /// Recalculate targets based on saved profile
+    func recalculateFromProfile() {
+        guard userAge > 0, userWeight > 0, userHeight > 0 else { return }
+        
+        guard let gender = Gender(rawValue: userGender),
+              let activity = ActivityLevel(rawValue: activityLevel),
+              let goal = Goal(rawValue: goalType) else { return }
+        
+        // Calculate new calorie target
+        dailyCalorieTarget = CalorieCalculator.calculateDailyTarget(
+            weight: userWeight,
+            height: userHeight,
+            age: userAge,
+            gender: gender,
+            activityLevel: activity,
+            goal: goal
+        )
+        
+        // Recalculate macros based on saved split type
+        if let split = MacroSplit(rawValue: macroSplitType), split != .custom {
+            let macros = split.calculateMacros(totalCalories: dailyCalorieTarget)
+            proteinTarget = macros.protein
+            carbsTarget = macros.carbs
+            fatTarget = macros.fat
+        }
+    }
+    
+    var hasProfileData: Bool {
+        userAge > 0 && userWeight > 0 && userHeight > 0
     }
 }

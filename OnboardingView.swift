@@ -2,220 +2,199 @@
 //  OnboardingView.swift
 //  QuickCalories
 //
-//  Created by John N on 2/17/26.
+//  Created by John N on 2/18/26.
 //
 
 import SwiftUI
 
 struct OnboardingView: View {
-    @State private var currentStep = 0
-    @State private var calorieGoal = 2000
-    @State private var macroSliderPosition: Double = 0.5
-    @Environment(\.dismiss) private var dismiss
+    @State private var currentPage = 0
+    @State private var showTargetSetup = false
+    @State private var dailyCalorieTarget = 2000
+    @State private var proteinTarget = 150.0
+    @State private var carbsTarget = 200.0
+    @State private var fatTarget = 67.0
+    
+    var onComplete: () -> Void
     
     var body: some View {
         ZStack {
-            if currentStep == 0 {
-                CalorieGoalView(calorieGoal: $calorieGoal) {
-                    withAnimation {
-                        currentStep = 1
+            if !showTargetSetup {
+                TabView(selection: $currentPage) {
+                    WelcomePage()
+                        .tag(0)
+                    
+                    FeaturePage(
+                        icon: "sparkles",
+                        title: "AI-Powered Logging",
+                        description: "Just describe your meal naturally and let AI calculate the nutrition for you",
+                        color: .blue
+                    )
+                    .tag(1)
+                    
+                    FeaturePage(
+                        icon: "chart.bar.fill",
+                        title: "Track Your Progress",
+                        description: "Monitor calories, protein, carbs, and fat with beautiful visualizations",
+                        color: .green
+                    )
+                    .tag(2)
+                    
+                    FeaturePage(
+                        icon: "target",
+                        title: "Reach Your Goals",
+                        description: "Set personalized targets and watch your daily progress",
+                        color: .orange
+                    )
+                    .tag(3)
+                    
+                    GetStartedPage {
+                        withAnimation {
+                            showTargetSetup = true
+                        }
                     }
+                    .tag(4)
                 }
-                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+                .tabViewStyle(.page)
+                .indexViewStyle(.page(backgroundDisplayMode: .always))
             } else {
-                MacroDistributionView(
-                    calorieGoal: calorieGoal,
-                    sliderPosition: $macroSliderPosition
+                CalorieTargetSetupView(
+                    dailyCalorieTarget: $dailyCalorieTarget,
+                    proteinTarget: $proteinTarget,
+                    carbsTarget: $carbsTarget,
+                    fatTarget: $fatTarget,
+                    isOnboarding: true
                 ) {
                     completeOnboarding()
                 }
-                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
             }
         }
-        .animation(.easeInOut, value: currentStep)
     }
     
     private func completeOnboarding() {
-        let settings = SettingsManager.shared
-        settings.dailyCalorieTarget = calorieGoal
-        
-        let (protein, carbs, fat) = calculateMacros(calories: calorieGoal, sliderPosition: macroSliderPosition)
-        settings.proteinTarget = protein
-        settings.carbsTarget = carbs
-        settings.fatTarget = fat
-        settings.hasCompletedOnboarding = true
-        
-        dismiss()
-    }
-    
-    private func calculateMacros(calories: Int, sliderPosition: Double) -> (protein: Double, carbs: Double, fat: Double) {
-        let fatCalories = Double(calories) * 0.3
-        let fat = fatCalories / 9.0
-        
-        let remainingCalories = Double(calories) - fatCalories
-        let proteinPercentage = 0.4 - (sliderPosition * 0.2)
-        let carbPercentage = 1.0 - proteinPercentage - 0.3
-        
-        let proteinCalories = remainingCalories * proteinPercentage
-        let carbCalories = remainingCalories * carbPercentage
-        
-        let protein = proteinCalories / 4.0
-        let carbs = carbCalories / 4.0
-        
-        return (protein.rounded(), carbs.rounded(), fat.rounded())
+        SettingsManager.shared.hasCompletedOnboarding = true
+        onComplete()
     }
 }
 
-struct CalorieGoalView: View {
-    @Binding var calorieGoal: Int
-    let onContinue: () -> Void
-    
+struct WelcomePage: View {
     var body: some View {
         VStack(spacing: 32) {
             Spacer()
             
             VStack(spacing: 16) {
-                Text("Daily Calorie Goal")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                Image(systemName: "fork.knife.circle.fill")
+                    .font(.system(size: 100))
+                    .foregroundStyle(.blue.gradient)
                 
-                Text("How many calories do you want to eat per day?")
-                    .font(.body)
+                Text("QuickCalories")
+                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                
+                Text("Track your nutrition with ease")
+                    .font(.title3)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             
-            TextField("2000", text: Binding(
-                get: { String(calorieGoal) },
-                set: { calorieGoal = Int($0) ?? 2000 }
-            ))
-                .font(.system(size: 72, weight: .bold, design: .rounded))
-                .multilineTextAlignment(.center)
-                .keyboardType(.numberPad)
-                .padding()
-                .background(Color(uiColor: .secondarySystemBackground))
-                .cornerRadius(16)
-            
-            Text("You can change this anytime in Settings")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            
             Spacer()
             
-            Button(action: onContinue) {
-                Text("Continue")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.accentColor)
-                    .cornerRadius(12)
-            }
+            Text("Swipe to continue")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 40)
         }
-        .padding(32)
+        .padding()
     }
 }
 
-struct MacroDistributionView: View {
-    let calorieGoal: Int
-    @Binding var sliderPosition: Double
-    let onContinue: () -> Void
-    
-    private var macros: (protein: Double, carbs: Double, fat: Double) {
-        calculateMacros()
-    }
+struct FeaturePage: View {
+    let icon: String
+    let title: String
+    let description: String
+    let color: Color
     
     var body: some View {
         VStack(spacing: 32) {
             Spacer()
             
-            VStack(spacing: 16) {
-                Text("Macro Distribution")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                
-                Text("Adjust your protein and carb balance")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-            }
-            
             VStack(spacing: 24) {
-                HStack {
-                    Text("High Protein")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text("High Carb")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                Image(systemName: icon)
+                    .font(.system(size: 80))
+                    .foregroundStyle(color.gradient)
                 
-                Slider(value: $sliderPosition, in: 0...1)
-                    .tint(.accentColor)
-                
-                VStack(spacing: 16) {
-                    MacroRow(name: "Protein", value: macros.protein, color: .red)
-                    MacroRow(name: "Carbs", value: macros.carbs, color: .blue)
-                    MacroRow(name: "Fat", value: macros.fat, color: .yellow)
+                VStack(spacing: 12) {
+                    Text(title)
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
+                    
+                    Text(description)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
                 }
-                .padding()
-                .background(Color(uiColor: .secondarySystemBackground))
-                .cornerRadius(16)
             }
             
             Spacer()
             
-            Button(action: onContinue) {
-                Text("Get Started")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.accentColor)
-                    .cornerRadius(12)
-            }
+            Text("Swipe to continue")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 40)
         }
-        .padding(32)
-    }
-    
-    private func calculateMacros() -> (protein: Double, carbs: Double, fat: Double) {
-        let fatCalories = Double(calorieGoal) * 0.3
-        let fat = fatCalories / 9.0
-        
-        let remainingCalories = Double(calorieGoal) - fatCalories
-        let proteinPercentage = 0.4 - (sliderPosition * 0.2)
-        let carbPercentage = 1.0 - proteinPercentage - 0.3
-        
-        let proteinCalories = remainingCalories * proteinPercentage
-        let carbCalories = remainingCalories * carbPercentage
-        
-        let protein = proteinCalories / 4.0
-        let carbs = carbCalories / 4.0
-        
-        return (protein.rounded(), carbs.rounded(), fat.rounded())
+        .padding()
     }
 }
 
-struct MacroRow: View {
-    let name: String
-    let value: Double
-    let color: Color
+struct GetStartedPage: View {
+    let onGetStarted: () -> Void
     
     var body: some View {
-        HStack {
-            Circle()
-                .fill(color)
-                .frame(width: 12, height: 12)
-            Text(name)
-                .font(.body)
+        VStack(spacing: 32) {
             Spacer()
-            Text("\(Int(value))g")
-                .font(.body)
-                .fontWeight(.semibold)
+            
+            VStack(spacing: 24) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundStyle(.green.gradient)
+                
+                VStack(spacing: 12) {
+                    Text("Ready to Get Started?")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("Let's set up your personalized calorie and macro targets")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+            }
+            
+            Spacer()
+            
+            Button {
+                onGetStarted()
+            } label: {
+                Text("Set Up Targets")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .cornerRadius(12)
+            }
+            .padding(.horizontal, 32)
+            .padding(.bottom, 40)
         }
+        .padding()
     }
 }
 
 #Preview {
-    OnboardingView()
+    OnboardingView {
+        print("Onboarding complete")
+    }
 }

@@ -14,66 +14,107 @@ struct SettingsView: View {
     @State private var fatTarget = 67.0
     @State private var apiKey = ""
     @State private var showAPIKeyInfo = false
+    @State private var showTargetSetup = false
+    @State private var showRecalculateConfirmation = false
+    
+    private var settings = SettingsManager.shared
     
     var body: some View {
         Form {
-            Section("Daily Targets") {
-                HStack {
-                    Text("Calories")
-                    Spacer()
-                    TextField("2000", value: $calorieTarget, format: .number)
-                        .keyboardType(.numberPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 100)
-                        .onChange(of: calorieTarget) { _, newValue in
-                            SettingsManager.shared.dailyCalorieTarget = newValue
-                        }
-                    Text("cal")
-                        .foregroundStyle(.secondary)
+            Section {
+                // Display current targets
+                VStack(spacing: 16) {
+                    VStack(spacing: 4) {
+                        Text("\(calorieTarget)")
+                            .font(.system(size: 42, weight: .bold, design: .rounded))
+                            .foregroundStyle(.blue)
+                        
+                        Text("calories per day")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    HStack(spacing: 20) {
+                        MacroTargetBadge(name: "Protein", amount: proteinTarget, color: .red)
+                        MacroTargetBadge(name: "Carbs", amount: carbsTarget, color: .blue)
+                        MacroTargetBadge(name: "Fat", amount: fatTarget, color: .yellow)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                
+                Button {
+                    showTargetSetup = true
+                } label: {
+                    Label("Edit Targets", systemImage: "pencil")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                
+                if settings.hasProfileData {
+                    Button {
+                        showRecalculateConfirmation = true
+                    } label: {
+                        Label("Recalculate from Profile", systemImage: "arrow.clockwise")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            } header: {
+                Text("Daily Targets")
+            } footer: {
+                if settings.hasProfileData {
+                    Text("Based on your profile: \(settings.userAge) years old, \(settings.useMetricSystem ? String(format: "%.0f kg", settings.userWeight) : String(format: "%.0f lbs", settings.userWeight.kgToLbs))")
                 }
             }
             
-            Section("Macro Targets") {
-                HStack {
-                    Text("Protein")
-                    Spacer()
-                    TextField("150", value: $proteinTarget, format: .number)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 100)
-                        .onChange(of: proteinTarget) { _, newValue in
-                            SettingsManager.shared.proteinTarget = newValue
+            // Profile section (if exists)
+            if settings.hasProfileData {
+                Section("Your Profile") {
+                    HStack {
+                        Text("Age")
+                        Spacer()
+                        Text("\(settings.userAge) years")
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    HStack {
+                        Text("Weight")
+                        Spacer()
+                        if settings.useMetricSystem {
+                            Text(String(format: "%.0f kg", settings.userWeight))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(String(format: "%.0f lbs", settings.userWeight.kgToLbs))
+                                .foregroundStyle(.secondary)
                         }
-                    Text("g")
-                        .foregroundStyle(.secondary)
-                }
-                
-                HStack {
-                    Text("Carbs")
-                    Spacer()
-                    TextField("200", value: $carbsTarget, format: .number)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 100)
-                        .onChange(of: carbsTarget) { _, newValue in
-                            SettingsManager.shared.carbsTarget = newValue
+                    }
+                    
+                    HStack {
+                        Text("Height")
+                        Spacer()
+                        if settings.useMetricSystem {
+                            Text(String(format: "%.0f cm", settings.userHeight))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(String(format: "%.0f in", settings.userHeight.cmToInches))
+                                .foregroundStyle(.secondary)
                         }
-                    Text("g")
-                        .foregroundStyle(.secondary)
-                }
-                
-                HStack {
-                    Text("Fat")
-                    Spacer()
-                    TextField("67", value: $fatTarget, format: .number)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 100)
-                        .onChange(of: fatTarget) { _, newValue in
-                            SettingsManager.shared.fatTarget = newValue
-                        }
-                    Text("g")
-                        .foregroundStyle(.secondary)
+                    }
+                    
+                    HStack {
+                        Text("Activity Level")
+                        Spacer()
+                        Text(settings.activityLevel)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    HStack {
+                        Text("Goal")
+                        Spacer()
+                        Text(settings.goalType)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             
@@ -144,15 +185,84 @@ struct SettingsView: View {
         .sheet(isPresented: $showAPIKeyInfo) {
             APIKeyInfoView()
         }
-        .onAppear {
-            // Load values from SettingsManager on appear
-            let settings = SettingsManager.shared
-            calorieTarget = settings.dailyCalorieTarget
-            proteinTarget = settings.proteinTarget
-            carbsTarget = settings.carbsTarget
-            fatTarget = settings.fatTarget
-            apiKey = settings.openAIApiKey ?? ""
+        .sheet(isPresented: $showTargetSetup) {
+            CalorieTargetSetupView(
+                dailyCalorieTarget: $calorieTarget,
+                proteinTarget: $proteinTarget,
+                carbsTarget: $carbsTarget,
+                fatTarget: $fatTarget,
+                isOnboarding: false
+            )
         }
+        .confirmationDialog(
+            "Recalculate Targets",
+            isPresented: $showRecalculateConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Recalculate") {
+                recalculateTargets()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will update your daily targets based on your saved profile information.")
+        }
+        .onAppear {
+            loadSettings()
+        }
+        .onChange(of: calorieTarget) { _, newValue in
+            SettingsManager.shared.dailyCalorieTarget = newValue
+        }
+        .onChange(of: proteinTarget) { _, newValue in
+            SettingsManager.shared.proteinTarget = newValue
+        }
+        .onChange(of: carbsTarget) { _, newValue in
+            SettingsManager.shared.carbsTarget = newValue
+        }
+        .onChange(of: fatTarget) { _, newValue in
+            SettingsManager.shared.fatTarget = newValue
+        }
+    }
+    
+    private func loadSettings() {
+        let settings = SettingsManager.shared
+        calorieTarget = settings.dailyCalorieTarget
+        proteinTarget = settings.proteinTarget
+        carbsTarget = settings.carbsTarget
+        fatTarget = settings.fatTarget
+        apiKey = settings.openAIApiKey ?? ""
+    }
+    
+    private func recalculateTargets() {
+        SettingsManager.shared.recalculateFromProfile()
+        loadSettings()
+        
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+    }
+}
+
+struct MacroTargetBadge: View {
+    let name: String
+    let amount: Double
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 8, height: 8)
+                
+                Text(name)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Text("\(Int(amount))g")
+                .font(.headline)
+                .foregroundStyle(color)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
