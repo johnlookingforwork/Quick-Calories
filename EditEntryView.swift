@@ -89,18 +89,39 @@ struct EditEntryView: View {
                 }
                 
                 if editMode == .servings {
-                    Section("Servings") {
+                    Section {
                         HStack {
                             Text("Servings")
                             Spacer()
-                            TextField("1.0", value: $servings, format: .number)
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 100)
+                            
+                            // Interactive servings control
+                            HStack(spacing: 8) {
+                                TextField("1.0", value: $servings, format: .number)
+                                    .keyboardType(.decimalPad)
+                                    .multilineTextAlignment(.center)
+                                    .frame(width: 60)
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 12)
+                                    .background(Color.accentColor.opacity(0.1))
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .strokeBorder(Color.accentColor.opacity(0.3), lineWidth: 1.5)
+                                    )
+                                
+                                Image(systemName: "pencil.circle.fill")
+                                    .foregroundStyle(.secondary)
+                                    .imageScale(.medium)
+                            }
                         }
                         
-                        Stepper("", value: $servings, in: 0.1...20, step: 0.5)
-                            .labelsHidden()
+                        HStack {
+                            Spacer()
+                            Stepper("Adjust servings", value: $servings, in: 0.1...20, step: 0.5)
+                                .labelsHidden()
+                        }
+                    } footer: {
+                        Text("Tap the number to type, or use +/- buttons to adjust")
                     }
                 }
                 

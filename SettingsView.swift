@@ -146,23 +146,30 @@ struct SettingsView: View {
             } header: {
                 Text("AI Configuration")
             } footer: {
-                Text("Supply your own OpenAI API key to bypass the 1 request per day limit, or subscribe for unlimited requests.")
+                if apiKey.isEmpty {
+                    Text("Supply your own OpenAI API key to bypass the 1 request per day limit, or subscribe for unlimited requests.")
+                } else {
+                    Text("Using your own API key. You have unlimited AI requests and will be billed directly by OpenAI.")
+                }
             }
             
-            Section("Usage") {
-                HStack {
-                    Text("Daily AI Requests")
-                    Spacer()
-                    Text("\(SettingsManager.shared.dailyAIRequestCount) / 1")
-                        .foregroundStyle(.secondary)
-                }
-                
-                if let lastReset = SettingsManager.shared.lastRequestResetDate {
+            // Only show usage section if no API key is provided
+            if apiKey.isEmpty {
+                Section("Usage") {
                     HStack {
-                        Text("Resets at Midnight")
+                        Text("Daily AI Requests")
                         Spacer()
-                        Text(lastReset, style: .date)
+                        Text("\(SettingsManager.shared.dailyAIRequestCount) / 1")
                             .foregroundStyle(.secondary)
+                    }
+                    
+                    if let lastReset = SettingsManager.shared.lastRequestResetDate {
+                        HStack {
+                            Text("Resets at Midnight")
+                            Spacer()
+                            Text(lastReset, style: .date)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }

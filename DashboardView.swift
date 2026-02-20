@@ -488,10 +488,7 @@ struct FoodEntryRow: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Food icon
-            Image(systemName: "fork.knife.circle.fill")
-                .font(.title2)
-                .foregroundStyle(.orange.gradient)
+            
             
             VStack(alignment: .leading, spacing: 6) {
                 Text(entry.foodName)

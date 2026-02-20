@@ -462,7 +462,7 @@ struct MonthlyHistoryView: View {
         }
         .sheet(isPresented: $showSavedFoods) {
             NavigationStack {
-                SavedFoodsView()
+                SavedFoodsView(logDate: selectedDate)
             }
         }
         .sheet(isPresented: $showWorkoutLog) {
