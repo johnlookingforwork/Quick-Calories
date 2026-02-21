@@ -593,6 +593,9 @@ struct LogSavedFoodView: View {
     }
     
     private func logFood() {
+        // Smart timestamp: retroactive (past) = 11:59pm, proactive (future) = 12:00am
+        let smartTimestamp = adjustTimestampForDateContext(date)
+        
         let entry = FoodEntry(
             foodName: food.foodName,
             calories: calculatedValues.calories,
@@ -600,7 +603,7 @@ struct LogSavedFoodView: View {
             carbs: calculatedValues.carbs,
             fat: calculatedValues.fat,
             servings: servings,
-            timestamp: date  // Use provided date
+            timestamp: smartTimestamp
         )
         
         modelContext.insert(entry)
@@ -609,6 +612,33 @@ struct LogSavedFoodView: View {
         generator.impactOccurred()
         
         dismiss()
+    }
+    
+    /// Adjusts timestamp based on whether logging for past or future
+    /// - Past dates: 11:59 PM (appears at top of list)
+    /// - Future dates: 12:00 AM (appears at bottom of list)
+    /// - Today: Uses current time
+    private func adjustTimestampForDateContext(_ date: Date) -> Date {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // If it's today, use current time
+        if calendar.isDateInToday(date) {
+            return now
+        }
+        
+        // If it's a future date, set to 12:00 AM (midnight)
+        if date > now {
+            return calendar.startOfDay(for: date)
+        }
+        
+        // If it's a past date, set to 11:59 PM
+        var components = calendar.dateComponents([.year, .month, .day], from: date)
+        components.hour = 23
+        components.minute = 59
+        components.second = 59
+        
+        return calendar.date(from: components) ?? date
     }
 }
 

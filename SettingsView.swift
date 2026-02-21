@@ -27,7 +27,7 @@ struct SettingsView: View {
                     VStack(spacing: 4) {
                         Text("\(calorieTarget)")
                             .font(.system(size: 42, weight: .bold, design: .rounded))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(.white)
                         
                         Text("calories per day")
                             .font(.caption)
@@ -46,8 +46,11 @@ struct SettingsView: View {
                 Button {
                     showTargetSetup = true
                 } label: {
-                    Label("Edit Targets", systemImage: "pencil")
-                        .frame(maxWidth: .infinity)
+                    HStack {
+                        Spacer()
+                        Text("Edit Targets")
+                        Spacer()
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 
@@ -55,8 +58,11 @@ struct SettingsView: View {
                     Button {
                         showRecalculateConfirmation = true
                     } label: {
-                        Label("Recalculate from Profile", systemImage: "arrow.clockwise")
-                            .frame(maxWidth: .infinity)
+                        HStack {
+                            Spacer()
+                            Label("Recalculate from Profile", systemImage: "arrow.clockwise")
+                            Spacer()
+                        }
                     }
                     .buttonStyle(.bordered)
                 }

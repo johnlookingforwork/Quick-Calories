@@ -15,7 +15,8 @@ A minimalist, high-performance iOS calorie tracking app that prioritizes speed a
 
 ### **Quick Logging**
 
-- **AI-Powered Entry**: Describe meals in natural language (e.g., "3 scrambled eggs and sourdough toast")
+- **AI-Powered Entry**: Describe meals in natural language (e.g., "3 scrambled eggs and sourdough toast") OR take a photo of your food
+- **Photo Recognition**: Use your camera or photo library to log meals instantly with AI vision
 - **Saved Foods Library**: Create custom foods for instant logging without AI
 - **Workout Tracking**: Log exercises with calories burned
 
@@ -197,7 +198,8 @@ open QuickCalories.xcodeproj
 
 ### **Implemented ✅**
 
-- [x] AI-powered food logging
+- [x] AI-powered food logging (text)
+- [x] AI-powered food logging (photo with vision)
 - [x] Saved foods library
 - [x] Workout tracking
 - [x] 7-day scrollable history
@@ -211,7 +213,6 @@ open QuickCalories.xcodeproj
 
 - [ ] StoreKit 2 subscription implementation
 - [ ] Barcode scanner
-- [ ] Photo food recognition
 - [ ] Export to CSV
 - [ ] Widgets
 - [ ] Apple Health integration

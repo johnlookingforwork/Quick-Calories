@@ -14,17 +14,27 @@ struct IdentifiableNutritionData: Identifiable {
     let data: NutritionResponse
 }
 
+enum AIInputMode: String, CaseIterable {
+    case text = "Text"
+    case photo = "Photo"
+}
+
 struct AILogView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     
     let date: Date
+    @State private var inputMode: AIInputMode = .text
     @State private var foodInput = ""
+    @State private var selectedImage: UIImage?
+    @State private var photoContext = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showPaywall = false
+    @State private var showPhotoPicker = false
     @State private var parsedNutrition: IdentifiableNutritionData?
     @FocusState private var isTextFieldFocused: Bool
+    @FocusState private var isPhotoContextFocused: Bool
     
     var body: some View {
         NavigationStack {
@@ -39,26 +49,99 @@ struct AILogView: View {
                 }
                 .padding(.top)
                 
-                // Text input
+                // Mode picker
+                Picker("Input Mode", selection: $inputMode) {
+                    ForEach(AIInputMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                
+                // Input area based on mode
                 VStack(spacing: 12) {
-                    TextEditor(text: $foodInput)
-                        .frame(height: 120)
-                        .padding(8)
-                        .background(Color(uiColor: .secondarySystemBackground))
-                        .cornerRadius(12)
-                        .focused($isTextFieldFocused)
-                        .overlay(
-                            Group {
-                                if foodInput.isEmpty {
-                                    Text("Describe your meal...\ne.g., 3 scrambled eggs and sourdough toast")
+                    if inputMode == .text {
+                        // Text input
+                        TextEditor(text: $foodInput)
+                            .frame(height: 120)
+                            .padding(8)
+                            .background(Color(uiColor: .secondarySystemBackground))
+                            .cornerRadius(12)
+                            .focused($isTextFieldFocused)
+                            .overlay(
+                                Group {
+                                    if foodInput.isEmpty {
+                                        Text("Describe your meal...\ne.g., 3 scrambled eggs and sourdough toast")
+                                            .foregroundStyle(.secondary)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 16)
+                                            .allowsHitTesting(false)
+                                    }
+                                },
+                                alignment: .topLeading
+                            )
+                    } else {
+                        // Photo input
+                        if let image = selectedImage {
+                            VStack(spacing: 12) {
+                                // Photo preview
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxHeight: 200)
+                                    .cornerRadius(12)
+                                
+                                // Optional context input
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Add context (optional)")
+                                        .font(.caption)
                                         .foregroundStyle(.secondary)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 16)
-                                        .allowsHitTesting(false)
+                                    
+                                    TextField("e.g., from restaurant, homemade", text: $photoContext)
+                                        .textFieldStyle(.roundedBorder)
+                                        .focused($isPhotoContextFocused)
                                 }
-                            },
-                            alignment: .topLeading
-                        )
+                                
+                                // Change photo button
+                                Button {
+                                    showPhotoPicker = true
+                                } label: {
+                                    Label("Change Photo", systemImage: "photo")
+                                        .font(.subheadline)
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        } else {
+                            // Photo picker prompt
+                            VStack(spacing: 16) {
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 48))
+                                    .foregroundStyle(.secondary)
+                                
+                                Text("Take a photo of your food")
+                                    .font(.headline)
+                                
+                                Button {
+                                    showPhotoPicker = true
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "photo.on.rectangle")
+                                        Text("Select Photo")
+                                    }
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.accentColor)
+                                    .cornerRadius(12)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 200)
+                            .background(Color(uiColor: .secondarySystemBackground))
+                            .cornerRadius(12)
+                        }
+                    }
                     
                     if let error = errorMessage {
                         Text(error)
@@ -68,8 +151,13 @@ struct AILogView: View {
                     }
                     
                     if isLoading {
-                        ProgressView()
-                            .padding()
+                        VStack(spacing: 12) {
+                            ProgressView()
+                            Text(inputMode == .photo ? "Analyzing photo..." : "Processing...")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
                     }
                 }
                 .padding(.horizontal)
@@ -86,10 +174,10 @@ struct AILogView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(foodInput.isEmpty || isLoading ? Color.gray : Color.accentColor)
+                    .background(canLog ? Color.accentColor : Color.gray)
                     .cornerRadius(12)
                 }
-                .disabled(foodInput.isEmpty || isLoading)
+                .disabled(!canLog)
                 .padding(.horizontal)
                 .padding(.bottom)
             }
@@ -100,6 +188,7 @@ struct AILogView: View {
                     Spacer()
                     Button("Done") {
                         isTextFieldFocused = false
+                        isPhotoContextFocused = false
                     }
                 }
                 
@@ -112,26 +201,67 @@ struct AILogView: View {
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
             }
+            .sheet(isPresented: $showPhotoPicker) {
+                PhotoPickerView(selectedImage: $selectedImage)
+            }
             .sheet(item: $parsedNutrition) { wrapper in
-                ConfirmAILogView(nutrition: wrapper.data, date: date)
+                ConfirmAILogView(nutrition: wrapper.data, date: date) {
+                    // Dismiss the parent AILogView after logging
+                    dismiss()
+                }
+            }
+            .onChange(of: inputMode) { _, newMode in
+                // Clear error when switching modes
+                errorMessage = nil
+                
+                // Focus appropriate field
+                if newMode == .text {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        isTextFieldFocused = true
+                    }
+                }
             }
             .onAppear {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    isTextFieldFocused = true
+                if inputMode == .text {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        isTextFieldFocused = true
+                    }
                 }
             }
         }
     }
     
-    private func logFood() {
-        guard !foodInput.isEmpty else { return }
+    private var canLog: Bool {
+        if isLoading {
+            return false
+        }
         
+        switch inputMode {
+        case .text:
+            return !foodInput.isEmpty
+        case .photo:
+            return selectedImage != nil
+        }
+    }
+    
+    private func logFood() {
         isLoading = true
         errorMessage = nil
         
         Task {
             do {
-                let nutrition = try await OpenAIService.shared.parseFood(foodInput)
+                let nutrition: NutritionResponse
+                
+                switch inputMode {
+                case .text:
+                    guard !foodInput.isEmpty else { return }
+                    nutrition = try await OpenAIService.shared.parseFood(foodInput)
+                    
+                case .photo:
+                    guard let image = selectedImage else { return }
+                    let context = photoContext.isEmpty ? nil : photoContext
+                    nutrition = try await OpenAIService.shared.parseFood(from: image, context: context)
+                }
                 
                 await MainActor.run {
                     isLoading = false
@@ -158,6 +288,7 @@ struct ConfirmAILogView: View {
     
     let nutrition: NutritionResponse
     let date: Date
+    var onLogComplete: (() -> Void)? = nil
     
     @State private var servings = 1.0
     @State private var showingSaveToSavedFoods = false
@@ -330,6 +461,22 @@ struct ConfirmAILogView: View {
     }
     
     private func logFood() {
+        // Use current time instead of midnight
+        let now = Date()
+        let calendar = Calendar.current
+        let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
+        let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: now)
+        
+        var finalComponents = DateComponents()
+        finalComponents.year = dateComponents.year
+        finalComponents.month = dateComponents.month
+        finalComponents.day = dateComponents.day
+        finalComponents.hour = timeComponents.hour
+        finalComponents.minute = timeComponents.minute
+        finalComponents.second = timeComponents.second
+        
+        let timestamp = calendar.date(from: finalComponents) ?? now
+        
         let entry = FoodEntry(
             foodName: nutrition.foodName,
             calories: calculatedValues.calories,
@@ -337,7 +484,7 @@ struct ConfirmAILogView: View {
             carbs: calculatedValues.carbs,
             fat: calculatedValues.fat,
             servings: servings,
-            timestamp: date
+            timestamp: timestamp
         )
         
         modelContext.insert(entry)
@@ -346,6 +493,7 @@ struct ConfirmAILogView: View {
         generator.impactOccurred()
         
         dismiss()
+        onLogComplete?()
     }
 }
 

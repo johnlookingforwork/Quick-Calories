@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UIKit
 
 struct NutritionResponse: Codable {
     let foodName: String
@@ -74,6 +75,58 @@ actor OpenAIService {
             "max_tokens": 200
         ]
         
+        return try await sendRequest(requestBody)
+    }
+    
+    func parseFood(from image: UIImage, context: String? = nil) async throws -> NutritionResponse {
+        let settings = SettingsManager.shared
+        
+        // Check rate limiting
+        guard settings.canMakeAIRequest() else {
+            throw OpenAIError.rateLimitExceeded
+        }
+        
+        // Process image for Vision API
+        let base64Image = try ImageProcessor.processForVisionAPI(image)
+        
+        let systemPrompt = """
+        You are a nutritional database. Analyze the food in this image and return a JSON object with keys: 
+        calories, protein, carbs, fat, and food_name. Use average nutritional values for a typical serving. 
+        Return ONLY the JSON, no additional text.
+        """
+        
+        // Build message content with image and optional text context
+        var userContent: [[String: Any]] = [
+            [
+                "type": "text",
+                "text": context ?? "Analyze this food image and provide nutritional information."
+            ],
+            [
+                "type": "image_url",
+                "image_url": [
+                    "url": base64Image
+                ]
+            ]
+        ]
+        
+        let requestBody: [String: Any] = [
+            "model": "gpt-4o-mini",
+            "messages": [
+                ["role": "system", "content": systemPrompt],
+                ["role": "user", "content": userContent]
+            ],
+            "temperature": 0.3,
+            "max_tokens": 200
+        ]
+        
+        return try await sendRequest(requestBody)
+    }
+    
+    // MARK: - Private Helpers
+    
+    private func sendRequest(_ requestBody: [String: Any]) async throws -> NutritionResponse {
+        let settings = SettingsManager.shared
+        
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
             throw OpenAIError.invalidResponse
         }
@@ -83,6 +136,7 @@ actor OpenAIService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(appSecret, forHTTPHeaderField: "x-app-secret")
         request.httpBody = jsonData
+        request.timeoutInterval = 30 // Longer timeout for vision API
         
         // If user provided their own API key, send it
         if let apiKey = settings.openAIApiKey {

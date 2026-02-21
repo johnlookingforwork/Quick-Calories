@@ -12,37 +12,39 @@ struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var allEntries: [FoodEntry]
     @Query private var allWorkouts: [WorkoutEntry]
+    @State private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
     @State private var showPaywall = false
     @State private var showAILog = false
     @State private var showManualAdd = false
     @State private var showSavedFoods = false
     @State private var showWorkoutLog = false
+    @State private var showDatePicker = false
     @State private var selectedEntry: FoodEntry?
     @State private var selectedWorkout: WorkoutEntry?
-    @State private var navigateToHistory = false
     @State private var navigateToSettings = false
-    @State private var selectedHistoryDate: Date?
     
-    private var todayEntries: [FoodEntry] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        return allEntries.filter { calendar.isDate($0.timestamp, inSameDayAs: today) }
+    private let calendar = Calendar.current
+    
+    private var isViewingToday: Bool {
+        calendar.isDateInToday(selectedDate)
+    }
+    
+    private var displayDateEntries: [FoodEntry] {
+        allEntries.filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) }
             .sorted(by: { $0.timestamp > $1.timestamp })
     }
     
-    private var todayWorkouts: [WorkoutEntry] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        return allWorkouts.filter { calendar.isDate($0.timestamp, inSameDayAs: today) }
+    private var displayDateWorkouts: [WorkoutEntry] {
+        allWorkouts.filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) }
             .sorted(by: { $0.timestamp > $1.timestamp })
     }
     
-    private var todayWorkoutCalories: Int {
-        todayWorkouts.reduce(0) { $0 + $1.caloriesBurned }
+    private var displayDateWorkoutCalories: Int {
+        displayDateWorkouts.reduce(0) { $0 + $1.caloriesBurned }
     }
     
-    private var todayTotals: (calories: Int, protein: Double, carbs: Double, fat: Double) {
-        todayEntries.reduce((0, 0.0, 0.0, 0.0)) { totals, entry in
+    private var displayDateTotals: (calories: Int, protein: Double, carbs: Double, fat: Double) {
+        displayDateEntries.reduce((0, 0.0, 0.0, 0.0)) { totals, entry in
             (totals.0 + entry.calories,
              totals.1 + entry.protein,
              totals.2 + entry.carbs,
@@ -50,27 +52,54 @@ struct DashboardView: View {
         }
     }
     
+    private var sectionTitle: String {
+        if isViewingToday {
+            return "Today's Meals"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM d"
+            return "\(formatter.string(from: selectedDate)) Meals"
+        }
+    }
+    
+    private var workoutSectionTitle: String {
+        if isViewingToday {
+            return "Today's Workouts"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM d"
+            return "\(formatter.string(from: selectedDate)) Workouts"
+        }
+    }
+    
+    private func jumpToToday() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            selectedDate = calendar.startOfDay(for: Date())
+        }
+        
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+    
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    // 7-Day Scrollable History
+                    // Infinite Date Scroll with Dynamic Header
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Last 7 Days")
-                            .font(.headline)
-                            .padding(.horizontal)
-                        
-                        WeekScrollView(
-                            navigateToHistory: $navigateToHistory,
-                            selectedHistoryDate: $selectedHistoryDate
+                        DateHeaderView(
+                            selectedDate: selectedDate,
+                            onJumpToToday: jumpToToday
                         )
+                        
+                        InfiniteDateScrollView(selectedDate: $selectedDate)
                     }
-                    .padding(.top)
+                    .padding(.top, 8)
                     
                     // Daily Progress
                     DailyProgressView(
-                        todayTotals: todayTotals,
-                        workoutCalories: todayWorkoutCalories,
+                        todayTotals: displayDateTotals,
+                        workoutCalories: displayDateWorkoutCalories,
                         targets: (
                             calories: SettingsManager.shared.dailyCalorieTarget,
                             protein: SettingsManager.shared.proteinTarget,
@@ -83,22 +112,37 @@ struct DashboardView: View {
                     .gesture(
                         DragGesture(minimumDistance: 30, coordinateSpace: .local)
                             .onEnded { value in
-                                // Detect swipe left
                                 if value.translation.width < -50 && abs(value.translation.height) < 100 {
-                                    navigateToSettings = true
+                                    // Swipe left - next day
+                                    if let nextDay = calendar.date(byAdding: .day, value: 1, to: selectedDate) {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                            selectedDate = nextDay
+                                        }
+                                        let generator = UIImpactFeedbackGenerator(style: .light)
+                                        generator.impactOccurred()
+                                    }
+                                } else if value.translation.width > 50 && abs(value.translation.height) < 100 {
+                                    // Swipe right - previous day
+                                    if let prevDay = calendar.date(byAdding: .day, value: -1, to: selectedDate) {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                            selectedDate = prevDay
+                                        }
+                                        let generator = UIImpactFeedbackGenerator(style: .light)
+                                        generator.impactOccurred()
+                                    }
                                 }
                             }
                     )
                     
-                    // Today's Meals
+                    // Meals Section
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Text("Today's Meals")
+                            Text(sectionTitle)
                                 .font(.headline)
                             
                             Spacer()
                             
-                            if !todayEntries.isEmpty {
+                            if !displayDateEntries.isEmpty {
                                 Text("Swipe to edit or delete")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
@@ -106,7 +150,7 @@ struct DashboardView: View {
                         }
                         .padding(.horizontal)
                         
-                        if todayEntries.isEmpty {
+                        if displayDateEntries.isEmpty {
                             Text("No meals logged yet")
                                 .font(.body)
                                 .foregroundStyle(.secondary)
@@ -114,7 +158,7 @@ struct DashboardView: View {
                                 .padding()
                         } else {
                             List {
-                                ForEach(todayEntries) { entry in
+                                ForEach(displayDateEntries) { entry in
                                     FoodEntryRow(entry: entry)
                                         .listRowInsets(EdgeInsets())
                                         .listRowBackground(Color.clear)
@@ -140,21 +184,21 @@ struct DashboardView: View {
                                 }
                             }
                             .listStyle(.plain)
-                            .frame(height: CGFloat(todayEntries.count) * 130) // Approximate height per row
+                            .frame(height: CGFloat(displayDateEntries.count) * 130)
                             .scrollDisabled(true)
                         }
                     }
                     
-                    // Today's Workouts
-                    if !todayWorkouts.isEmpty {
+                    // Workouts Section
+                    if !displayDateWorkouts.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
-                                Text("Today's Workouts")
+                                Text(workoutSectionTitle)
                                     .font(.headline)
                                 
                                 Spacer()
                                 
-                                Text("+\(todayWorkoutCalories) cal")
+                                Text("+\(displayDateWorkoutCalories) cal")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                                     .foregroundStyle(.green)
@@ -162,7 +206,7 @@ struct DashboardView: View {
                             .padding(.horizontal)
                             
                             List {
-                                ForEach(todayWorkouts) { workout in
+                                ForEach(displayDateWorkouts) { workout in
                                     WorkoutEntryRow(workout: workout)
                                         .listRowInsets(EdgeInsets())
                                         .listRowBackground(Color.clear)
@@ -188,7 +232,7 @@ struct DashboardView: View {
                                 }
                             }
                             .listStyle(.plain)
-                            .frame(height: CGFloat(todayWorkouts.count) * 100) // Approximate height per row
+                            .frame(height: CGFloat(displayDateWorkouts.count) * 100)
                             .scrollDisabled(true)
                         }
                     }
@@ -196,18 +240,13 @@ struct DashboardView: View {
                 .padding(.vertical)
             }
             .navigationTitle("QuickCalories")
-            .navigationDestination(isPresented: $navigateToHistory) {
-                if let date = selectedHistoryDate {
-                    MonthlyHistoryView(initialDate: date)
-                }
-            }
             .navigationDestination(isPresented: $navigateToSettings) {
                 SettingsView()
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        MonthlyHistoryView()
+                    Button {
+                        showDatePicker = true
                     } label: {
                         Image(systemName: "calendar")
                     }
@@ -228,21 +267,24 @@ struct DashboardView: View {
                 PaywallView()
             }
             .sheet(isPresented: $showAILog) {
-                AILogView(date: Date())
+                AILogView(date: selectedDate)
             }
             .sheet(isPresented: $showManualAdd) {
-                ManualAddView(date: Date())
+                ManualAddView(date: selectedDate)
             }
             .sheet(isPresented: $showSavedFoods) {
                 NavigationStack {
-                    SavedFoodsView()
+                    SavedFoodsView(logDate: selectedDate)
                 }
             }
             .sheet(isPresented: $showWorkoutLog) {
-                LogWorkoutView(date: Date())
+                LogWorkoutView(date: selectedDate)
             }
             .sheet(item: $selectedWorkout) { workout in
                 EditWorkoutView(workout: workout)
+            }
+            .sheet(isPresented: $showDatePicker) {
+                DatePickerPopup(selectedDate: $selectedDate)
             }
             .overlay(alignment: .bottomTrailing) {
                 // Floating Action Button with Menu
@@ -301,6 +343,67 @@ struct DashboardView: View {
     }
 }
 
+struct DateHeaderView: View {
+    let selectedDate: Date
+    let onJumpToToday: () -> Void
+    
+    private let calendar = Calendar.current
+    
+    private var isToday: Bool {
+        calendar.isDateInToday(selectedDate)
+    }
+    
+    private var isFuture: Bool {
+        selectedDate > Date()
+    }
+    
+    var body: some View {
+        HStack(alignment: .top) {
+            if isToday {
+                // Simple header when viewing today
+                Text("Select Date")
+                    .font(.headline)
+                    .transition(.opacity)
+            } else {
+                // Date context when viewing other days
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(selectedDate, format: .dateTime.month(.wide).day().year())
+                        .font(.headline)
+                    
+                    if isFuture {
+                        Text("Logging for future date")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .transition(.opacity)
+                
+                Spacer()
+                
+                // Jump to Today button
+                Button(action: onJumpToToday) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.uturn.backward")
+                            .font(.caption2)
+                        Text("Today")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.accentColor)
+                    .cornerRadius(16)
+                }
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal)
+        .frame(minHeight: 44) // Consistent height
+        .animation(.easeInOut(duration: 0.25), value: isToday)
+    }
+}
+
 struct DailyProgressView: View {
     let todayTotals: (calories: Int, protein: Double, carbs: Double, fat: Double)
     let workoutCalories: Int
@@ -314,6 +417,11 @@ struct DailyProgressView: View {
         Double(todayTotals.calories - workoutCalories) / Double(targets.calories)
     }
     
+    // 10% grace period - only show red if over by more than 10%
+    private var isOverBudget: Bool {
+        caloriesRemaining < 0 && abs(caloriesRemaining) > Int(Double(targets.calories) * 0.1)
+    }
+    
     var body: some View {
         VStack(spacing: 20) {
             VStack(spacing: 8) {
@@ -322,25 +430,11 @@ struct DailyProgressView: View {
                     VStack(spacing: 4) {
                         Text("\(caloriesRemaining)")
                             .font(.system(size: 56, weight: .bold, design: .rounded))
-                            .foregroundStyle(caloriesRemaining >= 0 ? Color.primary : Color.red)
+                            .foregroundStyle(isOverBudget ? Color.red : Color.primary)
                         
                         Text("calories remaining")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                    }
-                    
-                    // Swipe hint (positioned absolutely on the right)
-                    HStack {
-                        Spacer()
-                        VStack {
-                            Image(systemName: "chevron.left")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                            Text("edit")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
-                        .padding(.trailing, 4)
                     }
                 }
                 
@@ -356,7 +450,7 @@ struct DailyProgressView: View {
             }
             
             ProgressView(value: min(calorieProgress, 1.0))
-                .tint(caloriesRemaining >= 0 ? .green : .red)
+                .tint(isOverBudget ? .red : .green)
             
             HStack(spacing: 16) {
                 MacroProgressView(
