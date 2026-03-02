@@ -12,6 +12,8 @@ struct APIKeyConfigView: View {
     @State private var apiKey: String = ""
     @State private var showSuccess = false
     
+    var onAPIKeySaved: (() -> Void)?
+    
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -181,9 +183,10 @@ struct APIKeyConfigView: View {
             showSuccess = true
         }
         
-        // Dismiss after a delay
+        // Dismiss after a delay and call the callback
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             dismiss()
+            onAPIKeySaved?()
         }
     }
 }

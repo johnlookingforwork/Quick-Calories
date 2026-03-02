@@ -163,7 +163,10 @@ struct PaywallView: View {
                 }
             }
             .sheet(isPresented: $showAPIKeySheet) {
-                APIKeyConfigView()
+                APIKeyConfigView {
+                    // Callback when API key is saved - dismiss the paywall too
+                    dismiss()
+                }
             }
         }
         .task {

@@ -12,7 +12,6 @@ struct SettingsView: View {
     @State private var proteinTarget = 150.0
     @State private var carbsTarget = 200.0
     @State private var fatTarget = 67.0
-    @State private var apiKey = ""
     @State private var showTargetSetup = false
     @State private var showRecalculateConfirmation = false
     @State private var showPaywall = false
@@ -126,7 +125,7 @@ struct SettingsView: View {
             
             // API Key Status (read-only display)
             Section {
-                if !apiKey.isEmpty {
+                if let apiKey = settings.openAIApiKey, !apiKey.isEmpty {
                     HStack {
                         Image(systemName: "key.fill")
                             .foregroundStyle(.blue)
@@ -137,7 +136,6 @@ struct SettingsView: View {
                     }
                     
                     Button("Remove API Key", role: .destructive) {
-                        apiKey = ""
                         SettingsManager.shared.openAIApiKey = nil
                     }
                 } else if settings.hasActiveSubscription {
@@ -174,10 +172,10 @@ struct SettingsView: View {
             } header: {
                 Text("AI Access")
             } footer: {
-                if apiKey.isEmpty {
-                    Text("Subscribe for unlimited AI requests, or use your own OpenAI API key")
-                } else {
+                if settings.openAIApiKey != nil {
                     Text("You have unlimited AI requests. You will be billed directly by OpenAI for usage.")
+                } else {
+                    Text("Subscribe for unlimited AI requests, or use your own OpenAI API key")
                 }
             }
             
@@ -220,7 +218,7 @@ struct SettingsView: View {
         } message: {
             Text("This will update your daily targets based on your saved profile information.")
         }
-        .onAppear {
+        .task {
             loadSettings()
         }
         .onChange(of: calorieTarget) { _, newValue in
@@ -243,7 +241,6 @@ struct SettingsView: View {
         proteinTarget = settings.proteinTarget
         carbsTarget = settings.carbsTarget
         fatTarget = settings.fatTarget
-        apiKey = settings.openAIApiKey ?? ""
     }
     
     private func recalculateTargets() {
