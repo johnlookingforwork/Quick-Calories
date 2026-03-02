@@ -19,15 +19,26 @@ struct QuickCaloriesApp: App {
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            print("✅ Initializing ModelContainer...")
+            let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            print("✅ ModelContainer created successfully")
+            return container
         } catch {
+            print("❌ FATAL: Could not create ModelContainer: \(error)")
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()
+    
+    init() {
+        print("✅ QuickCaloriesApp initializing...")
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear {
+                    print("✅ ContentView appeared")
+                }
         }
         .modelContainer(sharedModelContainer)
     }

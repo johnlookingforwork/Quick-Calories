@@ -26,7 +26,7 @@ struct SettingsView: View {
                     VStack(spacing: 4) {
                         Text("\(calorieTarget)")
                             .font(.system(size: 42, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(.primary)
                         
                         Text("calories per day")
                             .font(.caption)

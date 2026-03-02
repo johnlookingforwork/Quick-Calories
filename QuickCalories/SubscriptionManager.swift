@@ -45,11 +45,18 @@ final class SubscriptionManager {
     private var updateListenerTask: Task<Void, Error>?
     
     private init() {
+        // Start listening for transactions
         updateListenerTask = listenForTransactions()
         
-        Task {
-            await loadProducts()
-            await updateSubscriptionStatus()
+        // Load products and update status on next run loop
+        // This prevents blocking the main thread during app launch
+        Task { @MainActor in
+            do {
+                await loadProducts()
+                await updateSubscriptionStatus()
+            } catch {
+                print("❌ Failed to initialize SubscriptionManager: \(error)")
+            }
         }
     }
     
@@ -61,26 +68,14 @@ final class SubscriptionManager {
     
     /// Load products from the App Store
     func loadProducts() async {
-        print("🔄 Starting to load products...")
         do {
             let productIdentifiers = SubscriptionTier.allCases.map { $0.rawValue }
-            print("🔍 Looking for product IDs: \(productIdentifiers)")
             products = try await Product.products(for: productIdentifiers)
             print("✅ Loaded \(products.count) products")
-            
-            if products.isEmpty {
-                print("⚠️ WARNING: No products loaded. Check:")
-                print("   1. StoreKit Configuration file exists")
-                print("   2. Product IDs match exactly")
-                print("   3. StoreKit Config is selected in Run scheme")
-            } else {
-                for product in products {
-                    print("   📦 Product: \(product.displayName) - \(product.displayPrice)")
-                }
-            }
         } catch {
             print("❌ Failed to load products: \(error)")
-            print("   Error details: \(error.localizedDescription)")
+            // Don't crash - just use empty products array
+            products = []
         }
     }
     
