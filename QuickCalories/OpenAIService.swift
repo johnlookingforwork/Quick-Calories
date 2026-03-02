@@ -47,8 +47,13 @@ enum OpenAIError: LocalizedError {
 actor OpenAIService {
     static let shared = OpenAIService()
     
-    private let proxyURL = Secrets.proxyURL
-    private let appSecret = Secrets.appSecret
+    private var proxyURL: String {
+        Configuration.proxyURL
+    }
+    
+    private var appSecret: String {
+        Configuration.appSecret
+    }
     
     private init() {}
     

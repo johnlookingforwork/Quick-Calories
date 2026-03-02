@@ -15,6 +15,8 @@ struct SettingsView: View {
     @State private var showTargetSetup = false
     @State private var showRecalculateConfirmation = false
     @State private var showPaywall = false
+    @State private var showDeveloperConfig = false
+    @State private var versionTapCount = 0
     
     private var settings = SettingsManager.shared
     
@@ -186,6 +188,14 @@ struct SettingsView: View {
                     Text("1.0")
                         .foregroundStyle(.secondary)
                 }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    versionTapCount += 1
+                    if versionTapCount >= 7 {
+                        showDeveloperConfig = true
+                        versionTapCount = 0
+                    }
+                }
                 
                 Link("Privacy Policy", destination: URL(string: "https://www.quickcaloriesapp.com/privacy")!)
                 Link("Terms of Service", destination: URL(string: "https://example.com/terms")!)
@@ -205,6 +215,9 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showPaywall) {
             PaywallView()
+        }
+        .sheet(isPresented: $showDeveloperConfig) {
+            DeveloperConfigView()
         }
         .confirmationDialog(
             "Recalculate Targets",
