@@ -51,12 +51,8 @@ final class SubscriptionManager {
         // Load products and update status on next run loop
         // This prevents blocking the main thread during app launch
         Task { @MainActor in
-            do {
-                await loadProducts()
-                await updateSubscriptionStatus()
-            } catch {
-                print("❌ Failed to initialize SubscriptionManager: \(error)")
-            }
+            await loadProducts()
+            await updateSubscriptionStatus()
         }
     }
     
@@ -129,7 +125,7 @@ final class SubscriptionManager {
         return Task.detached { [weak self] in
             for await result in Transaction.updates {
                 do {
-                    let transaction = try self?.checkVerified(result)
+                    let transaction = try await self?.checkVerified(result)
                     await self?.updateSubscriptionStatus()
                     await transaction?.finish()
                 } catch {

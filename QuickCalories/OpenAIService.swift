@@ -8,7 +8,7 @@
 import Foundation
 import UIKit
 
-struct NutritionResponse: Codable {
+struct NutritionResponse: Sendable, Codable {
     let foodName: String
     let calories: Int
     let protein: Double
@@ -21,6 +21,15 @@ struct NutritionResponse: Codable {
         case protein
         case carbs
         case fat
+    }
+    
+    nonisolated init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.foodName = try container.decode(String.self, forKey: .foodName)
+        self.calories = try container.decode(Int.self, forKey: .calories)
+        self.protein = try container.decode(Double.self, forKey: .protein)
+        self.carbs = try container.decode(Double.self, forKey: .carbs)
+        self.fat = try container.decode(Double.self, forKey: .fat)
     }
 }
 
@@ -48,20 +57,24 @@ actor OpenAIService {
     static let shared = OpenAIService()
     
     private var proxyURL: String {
-        Configuration.proxyURL
+        get async {
+            await MainActor.run { Configuration.proxyURL }
+        }
     }
     
     private var appSecret: String {
-        Configuration.appSecret
+        get async {
+            await MainActor.run { Configuration.appSecret }
+        }
     }
     
     private init() {}
     
     func parseFood(_ input: String) async throws -> NutritionResponse {
-        let settings = SettingsManager.shared
+        let settings = await SettingsManager.shared
         
         // Check rate limiting
-        guard settings.canMakeAIRequest() else {
+        guard await settings.canMakeAIRequest() else {
             throw OpenAIError.rateLimitExceeded
         }
         
@@ -84,15 +97,15 @@ actor OpenAIService {
     }
     
     func parseFood(from image: UIImage, context: String? = nil) async throws -> NutritionResponse {
-        let settings = SettingsManager.shared
+        let settings = await SettingsManager.shared
         
         // Check rate limiting
-        guard settings.canMakeAIRequest() else {
+        guard await settings.canMakeAIRequest() else {
             throw OpenAIError.rateLimitExceeded
         }
         
         // Process image for Vision API
-        let base64Image = try ImageProcessor.processForVisionAPI(image)
+        let base64Image = try await ImageProcessor.processForVisionAPI(image)
         
         let systemPrompt = """
         You are a nutritional database. Analyze the food in this image and return a JSON object with keys: 
@@ -101,7 +114,7 @@ actor OpenAIService {
         """
         
         // Build message content with image and optional text context
-        var userContent: [[String: Any]] = [
+        let userContent: [[String: Any]] = [
             [
                 "type": "text",
                 "text": context ?? "Analyze this food image and provide nutritional information."
@@ -129,22 +142,29 @@ actor OpenAIService {
     
     // MARK: - Private Helpers
     
+    private func decodeNutrition(from data: Data) throws -> NutritionResponse {
+        return try JSONDecoder().decode(NutritionResponse.self, from: data)
+    }
+    
     private func sendRequest(_ requestBody: [String: Any]) async throws -> NutritionResponse {
-        let settings = SettingsManager.shared
+        let settings = await SettingsManager.shared
         
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
             throw OpenAIError.invalidResponse
         }
         
-        var request = URLRequest(url: URL(string: proxyURL)!)
+        let proxyURLString = await proxyURL
+        let appSecretString = await appSecret
+        
+        var request = URLRequest(url: URL(string: proxyURLString)!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(appSecret, forHTTPHeaderField: "x-app-secret")
+        request.setValue(appSecretString, forHTTPHeaderField: "x-app-secret")
         request.httpBody = jsonData
         request.timeoutInterval = 30 // Longer timeout for vision API
         
         // If user provided their own API key, send it
-        if let apiKey = settings.openAIApiKey {
+        if let apiKey = await settings.openAIApiKey {
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         }
         
@@ -191,10 +211,10 @@ actor OpenAIService {
                 throw OpenAIError.invalidResponse
             }
             
-            let nutrition = try JSONDecoder().decode(NutritionResponse.self, from: nutritionData)
+            let nutrition = try decodeNutrition(from: nutritionData)
             
             // Increment request count
-            settings.incrementAIRequestCount()
+            await settings.incrementAIRequestCount()
             
             return nutrition
             

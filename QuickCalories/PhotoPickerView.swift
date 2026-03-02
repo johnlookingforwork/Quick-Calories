@@ -7,6 +7,7 @@
 
 import SwiftUI
 import PhotosUI
+import AVFoundation
 
 enum PhotoSource {
     case camera
@@ -150,8 +151,6 @@ struct PhotoPickerView: View {
 }
 
 // MARK: - Camera View (UIKit Wrapper)
-
-import AVFoundation
 
 struct CameraView: UIViewControllerRepresentable {
     @Environment(\.dismiss) private var dismiss
