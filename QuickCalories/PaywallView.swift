@@ -10,7 +10,11 @@ import StoreKit
 
 struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var subscriptionManager = SubscriptionManager.shared
     @State private var isPurchasing = false
+    @State private var selectedProduct: Product?
+    @State private var errorMessage: String?
+    @State private var showAPIKeySheet = false
     
     var body: some View {
         NavigationStack {
@@ -62,22 +66,25 @@ struct PaywallView: View {
                     }
                     .padding(.horizontal)
                     
-                    // Pricing (Placeholder - Replace with real StoreKit products)
+                    // Pricing - Real StoreKit Products
                     VStack(spacing: 16) {
-                        PricingCard(
-                            title: "Monthly",
-                            price: "$2.99",
-                            period: "per month",
-                            isRecommended: false
-                        )
-                        
-                        PricingCard(
-                            title: "Annual",
-                            price: "$24.99",
-                            period: "per year",
-                            isRecommended: true,
-                            savings: "Save 30%"
-                        )
+                        if subscriptionManager.products.isEmpty {
+                            ProgressView()
+                                .padding()
+                        } else {
+                            ForEach(subscriptionManager.products, id: \.id) { product in
+                                Button {
+                                    selectedProduct = product
+                                } label: {
+                                    ProductPricingCard(
+                                        product: product,
+                                        isSelected: selectedProduct?.id == product.id,
+                                        isRecommended: product.id.contains("annual")
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
                     }
                     .padding(.horizontal)
                     
@@ -89,17 +96,25 @@ struct PaywallView: View {
                             ProgressView()
                                 .tint(.white)
                         } else {
-                            Text("Start Free Trial")
+                            Text(selectedProduct == nil ? "Select a Plan" : "Start Free Trial")
                                 .font(.headline)
                         }
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.accentColor)
+                    .background(selectedProduct == nil ? Color.gray : Color.accentColor)
                     .foregroundColor(.white)
                     .cornerRadius(12)
                     .padding(.horizontal)
-                    .disabled(isPurchasing)
+                    .disabled(isPurchasing || selectedProduct == nil)
+                    
+                    // Error message
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .padding(.horizontal)
+                    }
                     
                     // Alternative
                     VStack(spacing: 8) {
@@ -108,8 +123,7 @@ struct PaywallView: View {
                             .foregroundStyle(.secondary)
                         
                         Button("Learn More") {
-                            // This would navigate to settings or show info
-                            dismiss()
+                            showAPIKeySheet = true
                         }
                         .font(.caption)
                     }
@@ -123,10 +137,12 @@ struct PaywallView: View {
                         HStack(spacing: 12) {
                             Link("Terms", destination: URL(string: "https://example.com/terms")!)
                             Text("•")
-                            Link("Privacy", destination: URL(string: "https://example.com/privacy")!)
+                            Link("Privacy", destination: URL(string: "https://www.quickcaloriesapp.com/privacy")!)
                             Text("•")
                             Button("Restore") {
-                                restorePurchases()
+                                Task {
+                                    await restorePurchases()
+                                }
                             }
                         }
                         .font(.caption2)
@@ -146,25 +162,127 @@ struct PaywallView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showAPIKeySheet) {
+                APIKeyConfigView()
+            }
+        }
+        .task {
+            // Load products when view appears
+            if subscriptionManager.products.isEmpty {
+                await subscriptionManager.loadProducts()
+            }
+            
+            // Auto-select the annual plan (recommended)
+            if selectedProduct == nil {
+                selectedProduct = subscriptionManager.product(for: .annual)
+            }
         }
     }
     
     private func purchaseSubscription() {
-        isPurchasing = true
+        guard let product = selectedProduct else { return }
         
-        // TODO: Implement actual StoreKit 2 purchase flow
-        // For now, just simulate a purchase
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            // In production, this would be set after successful purchase verification
-            // SettingsManager.shared.hasActiveSubscription = true
-            isPurchasing = false
-            dismiss()
+        isPurchasing = true
+        errorMessage = nil
+        
+        Task {
+            do {
+                try await subscriptionManager.purchase(product)
+                await MainActor.run {
+                    isPurchasing = false
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    isPurchasing = false
+                    errorMessage = error.localizedDescription
+                }
+            }
         }
     }
     
-    private func restorePurchases() {
-        // TODO: Implement StoreKit 2 restore purchases
-        print("Restore purchases")
+    private func restorePurchases() async {
+        await subscriptionManager.restorePurchases()
+        
+        // Dismiss if subscription was restored
+        if subscriptionManager.hasActiveSubscription {
+            dismiss()
+        }
+    }
+}
+
+// MARK: - Product Pricing Card
+
+struct ProductPricingCard: View {
+    let product: Product
+    let isSelected: Bool
+    let isRecommended: Bool
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            if isRecommended {
+                Text("BEST VALUE")
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                    .background(Color.accentColor)
+                    .cornerRadius(4)
+            }
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(product.displayName)
+                        .font(.headline)
+                    
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(product.displayPrice)
+                            .font(.title)
+                            .fontWeight(.bold)
+                        
+                        Text(product.id.contains("annual") ? "per year" : "per month")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                if isRecommended, let monthlyPrice = calculateMonthlySavings() {
+                    Text(monthlyPrice)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.green)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(6)
+                }
+                
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.accentColor)
+                        .font(.title2)
+                }
+            }
+        }
+        .padding()
+        .background(Color(uiColor: .secondarySystemBackground))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+        )
+        .cornerRadius(12)
+    }
+    
+    private func calculateMonthlySavings() -> String? {
+        // You can calculate savings here if you want
+        // For now, just show a simple "Save X%" message
+        if product.id.contains("annual") {
+            return "Save 30%"
+        }
+        return nil
     }
 }
 
@@ -191,66 +309,6 @@ struct FeatureRow: View {
             
             Spacer()
         }
-    }
-}
-
-struct PricingCard: View {
-    let title: String
-    let price: String
-    let period: String
-    let isRecommended: Bool
-    var savings: String? = nil
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            if isRecommended {
-                Text("BEST VALUE")
-                    .font(.caption2)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Color.accentColor)
-                    .cornerRadius(4)
-            }
-            
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.headline)
-                    
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(price)
-                            .font(.title)
-                            .fontWeight(.bold)
-                        
-                        Text(period)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                
-                Spacer()
-                
-                if let savings = savings {
-                    Text(savings)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.green)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.green.opacity(0.1))
-                        .cornerRadius(6)
-                }
-            }
-        }
-        .padding()
-        .background(Color(uiColor: .secondarySystemBackground))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isRecommended ? Color.accentColor : Color.clear, lineWidth: 2)
-        )
-        .cornerRadius(12)
     }
 }
 

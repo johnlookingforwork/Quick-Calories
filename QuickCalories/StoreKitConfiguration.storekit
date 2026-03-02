@@ -1,0 +1,117 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "4B091053",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6759506377",
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_developerTeamID" : "YBN78D2579",
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 794105736.18519998,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21954850",
+      "localizations" : [
+
+      ],
+      "name" : "com.johnn.quickcalories.subscription",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "24.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6759843399",
+          "introductoryOffer" : {
+            "internalID" : "2B88FAA6",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "This is a one year subscription to use AI logging.",
+              "displayName" : "Unlimited AI Logging - One Year",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.johnn.quickcalories.subscription.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "com.johnn.quickcalories.subscription.annual",
+          "subscriptionGroupID" : "21954850",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "2.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6759843430",
+          "introductoryOffer" : {
+            "internalID" : "603383E7",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "This is a one month subscription to use AI logging.",
+              "displayName" : "Unlimited AI Logging - One Month",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.johnn.quickcalories.subscription.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "com.johnn.quickcalories.subscription.monthly",
+          "subscriptionGroupID" : "21954850",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

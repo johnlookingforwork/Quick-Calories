@@ -13,9 +13,9 @@ struct SettingsView: View {
     @State private var carbsTarget = 200.0
     @State private var fatTarget = 67.0
     @State private var apiKey = ""
-    @State private var showAPIKeyInfo = false
     @State private var showTargetSetup = false
     @State private var showRecalculateConfirmation = false
+    @State private var showPaywall = false
     
     private var settings = SettingsManager.shared
     
@@ -124,59 +124,60 @@ struct SettingsView: View {
                 }
             }
             
+            // API Key Status (read-only display)
             Section {
-                HStack {
-                    Text("OpenAI API Key")
-                    Spacer()
-                    Button {
-                        showAPIKeyInfo.toggle()
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                
-                SecureField("Optional - sk-...", text: $apiKey)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .onChange(of: apiKey) { _, newValue in
-                        SettingsManager.shared.openAIApiKey = newValue.isEmpty ? nil : newValue
-                    }
-                
                 if !apiKey.isEmpty {
-                    Button("Clear API Key", role: .destructive) {
-                        apiKey = ""
-                        SettingsManager.shared.openAIApiKey = nil
-                    }
-                }
-            } header: {
-                Text("AI Configuration")
-            } footer: {
-                if apiKey.isEmpty {
-                    Text("Supply your own OpenAI API key to bypass the 1 request per day limit, or subscribe for unlimited requests.")
-                } else {
-                    Text("Using your own API key. You have unlimited AI requests and will be billed directly by OpenAI.")
-                }
-            }
-            
-            // Only show usage section if no API key is provided
-            if apiKey.isEmpty {
-                Section("Usage") {
                     HStack {
-                        Text("Daily AI Requests")
+                        Image(systemName: "key.fill")
+                            .foregroundStyle(.blue)
+                        Text("Using Your Own API Key")
                         Spacer()
-                        Text("\(SettingsManager.shared.dailyAIRequestCount) / 1")
+                        Text("Unlimited")
                             .foregroundStyle(.secondary)
                     }
                     
-                    if let lastReset = SettingsManager.shared.lastRequestResetDate {
+                    Button("Remove API Key", role: .destructive) {
+                        apiKey = ""
+                        SettingsManager.shared.openAIApiKey = nil
+                    }
+                } else if settings.hasActiveSubscription {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Active Subscription")
+                        Spacer()
+                        Text("Unlimited")
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("Resets at Midnight")
+                            Text("Free Plan")
                             Spacer()
-                            Text(lastReset, style: .date)
+                            Text("\(SettingsManager.shared.dailyAIRequestCount) / 1")
                                 .foregroundStyle(.secondary)
                         }
+                        
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "bolt.circle.fill")
+                                Text("Upgrade to Unlimited")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
+                }
+            } header: {
+                Text("AI Access")
+            } footer: {
+                if apiKey.isEmpty {
+                    Text("Subscribe for unlimited AI requests, or use your own OpenAI API key")
+                } else {
+                    Text("You have unlimited AI requests. You will be billed directly by OpenAI for usage.")
                 }
             }
             
@@ -188,16 +189,13 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 
-                Link("Privacy Policy", destination: URL(string: "https://example.com/privacy")!)
+                Link("Privacy Policy", destination: URL(string: "https://www.quickcaloriesapp.com/privacy")!)
                 Link("Terms of Service", destination: URL(string: "https://example.com/terms")!)
             }
         }
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showAPIKeyInfo) {
-            APIKeyInfoView()
-        }
         .sheet(isPresented: $showTargetSetup) {
             CalorieTargetSetupView(
                 dailyCalorieTarget: $calorieTarget,
@@ -206,6 +204,9 @@ struct SettingsView: View {
                 fatTarget: $fatTarget,
                 isOnboarding: false
             )
+        }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView()
         }
         .confirmationDialog(
             "Recalculate Targets",

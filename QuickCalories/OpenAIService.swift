@@ -177,12 +177,12 @@ actor OpenAIService {
             
             // Extract JSON from response (handling potential markdown code blocks)
             let cleanedContent = content
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
                 .replacingOccurrences(of: "```json", with: "")
                 .replacingOccurrences(of: "```", with: "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
             
-            guard let nutritionData = cleanedContent.data(using: .utf8) else {
+            guard let nutritionData = cleanedContent.data(using: String.Encoding.utf8) else {
                 throw OpenAIError.invalidResponse
             }
             
