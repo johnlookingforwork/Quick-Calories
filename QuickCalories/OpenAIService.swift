@@ -15,6 +15,15 @@ struct NutritionResponse: Sendable, Codable {
     let carbs: Double
     let fat: Double
     
+    // Data source information for App Store compliance
+    var dataSource: String {
+        "AI-generated estimates based on USDA National Nutrient Database and common nutrition references"
+    }
+    
+    var disclaimer: String {
+        "Nutritional values are estimates and may vary. For medical or dietary decisions, consult a healthcare professional."
+    }
+    
     enum CodingKeys: String, CodingKey {
         case foodName = "food_name"
         case calories
@@ -79,8 +88,10 @@ actor OpenAIService {
         }
         
         let systemPrompt = """
-        You are a nutritional database. Convert the user's text into a JSON object with keys: 
-        calories, protein, carbs, fat, and food_name. Use average nutritional values. Return ONLY the JSON.
+        You are a nutritional database assistant. Convert the user's text into a JSON object with keys: 
+        calories, protein, carbs, fat, and food_name. Base estimates on standard nutritional databases 
+        like USDA National Nutrient Database and common food composition tables. Use average values for 
+        typical serving sizes. Return ONLY the JSON, no additional text.
         """
         
         let requestBody: [String: Any] = [
@@ -108,9 +119,10 @@ actor OpenAIService {
         let base64Image = try await ImageProcessor.processForVisionAPI(image)
         
         let systemPrompt = """
-        You are a nutritional database. Analyze the food in this image and return a JSON object with keys: 
-        calories, protein, carbs, fat, and food_name. Use average nutritional values for a typical serving. 
-        Return ONLY the JSON, no additional text.
+        You are a nutritional database assistant. Analyze the food in this image and return a JSON object with keys: 
+        calories, protein, carbs, fat, and food_name. Base estimates on standard nutritional databases 
+        like USDA National Nutrient Database and common food composition tables. Use average values for 
+        typical serving sizes. Return ONLY the JSON, no additional text.
         """
         
         // Build message content with image and optional text context

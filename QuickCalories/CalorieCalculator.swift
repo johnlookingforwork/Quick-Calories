@@ -114,37 +114,64 @@ enum MacroSplit: String, CaseIterable, Identifiable {
     var description: String {
         switch self {
         case .balanced:
-            return "30% protein, 40% carbs, 30% fat"
+            return "1.6g protein/kg, balanced carbs & fats"
         case .highProtein:
-            return "35% protein, 35% carbs, 30% fat"
+            return "2.0g protein/kg, moderate carbs"
         case .lowCarb:
-            return "30% protein, 20% carbs, 50% fat"
+            return "1.8g protein/kg, low carbs, high fats"
         case .custom:
-            return "Set your own percentages"
+            return "Set your own values"
         }
     }
     
+    var proteinPerKg: Double {
+        switch self {
+        case .balanced: return 1.6      // General population
+        case .highProtein: return 2.0   // Athletes/muscle building
+        case .lowCarb: return 1.8       // Low carb diets
+        case .custom: return 0          // User defined
+        }
+    }
+    
+    /// Returns approximate percentage distribution for each macro
     var percentages: (protein: Double, carbs: Double, fat: Double) {
         switch self {
-        case .balanced: return (0.30, 0.40, 0.30)
-        case .highProtein: return (0.35, 0.35, 0.30)
-        case .lowCarb: return (0.30, 0.20, 0.50)
-        case .custom: return (0, 0, 0) // User defined
+        case .balanced:
+            return (protein: 0.30, carbs: 0.40, fat: 0.30)
+        case .highProtein:
+            return (protein: 0.35, carbs: 0.35, fat: 0.30)
+        case .lowCarb:
+            return (protein: 0.30, carbs: 0.20, fat: 0.50)
+        case .custom:
+            return (protein: 0.30, carbs: 0.40, fat: 0.30) // Default
         }
     }
     
-    func calculateMacros(totalCalories: Int) -> (protein: Double, carbs: Double, fat: Double) {
-        let (pPct, cPct, fPct) = percentages
+    func calculateMacros(totalCalories: Int, bodyWeight: Double) -> (protein: Double, carbs: Double, fat: Double) {
+        // Calculate protein based on body weight (scientifically accurate)
+        let proteinGrams = proteinPerKg * bodyWeight
+        let proteinCals = proteinGrams * 4.0
         
-        // Protein: 4 cal/g, Carbs: 4 cal/g, Fat: 9 cal/g
-        let proteinCals = Double(totalCalories) * pPct
-        let carbsCals = Double(totalCalories) * cPct
-        let fatCals = Double(totalCalories) * fPct
+        // Calculate fat based on split type
+        let fatPercentage: Double
+        switch self {
+        case .balanced: fatPercentage = 0.30       // 30% of calories
+        case .highProtein: fatPercentage = 0.30    // 30% of calories
+        case .lowCarb: fatPercentage = 0.50        // 50% of calories (keto-style)
+        case .custom: fatPercentage = 0.30         // Default if custom
+        }
+        
+        let fatCals = Double(totalCalories) * fatPercentage
+        let fatGrams = fatCals / 9.0
+        
+        // Remaining calories go to carbs
+        let remainingCals = Double(totalCalories) - proteinCals - fatCals
+        let carbsGrams = max(0, remainingCals / 4.0)
         
         return (
-            protein: proteinCals / 4.0,
-            carbs: carbsCals / 4.0,
-            fat: fatCals / 9.0
+            protein: proteinGrams,
+            carbs: carbsGrams,
+            fat: fatGrams
         )
     }
 }

@@ -10,6 +10,7 @@ import SwiftData
 
 struct ContentView: View {
     @State private var showOnboarding = !SettingsManager.shared.hasCompletedOnboarding
+    @State private var showHealthDisclaimer = !SettingsManager.shared.hasAcceptedHealthDisclaimer
     
     var body: some View {
         DashboardView()
@@ -18,6 +19,12 @@ struct ContentView: View {
                     showOnboarding = false
                 }
                 .interactiveDismissDisabled()
+            }
+            .sheet(isPresented: $showHealthDisclaimer) {
+                HealthDisclaimerView {
+                    SettingsManager.shared.hasAcceptedHealthDisclaimer = true
+                    showHealthDisclaimer = false
+                }
             }
     }
 }

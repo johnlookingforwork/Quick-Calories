@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var showRecalculateConfirmation = false
     @State private var showPaywall = false
     @State private var showDeveloperConfig = false
+    @State private var showDataSources = false
     @State private var versionTapCount = 0
     
     private var settings = SettingsManager.shared
@@ -182,10 +183,23 @@ struct SettingsView: View {
             }
             
             Section("About") {
+                Button {
+                    showDataSources = true
+                } label: {
+                    HStack {
+                        Label("Data Sources & Citations", systemImage: "doc.text.magnifyingglass")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+                
                 HStack {
                     Text("Version")
                     Spacer()
-                    Text("1.0")
+                    Text("1.01")
                         .foregroundStyle(.secondary)
                 }
                 .contentShape(Rectangle())
@@ -198,7 +212,7 @@ struct SettingsView: View {
                 }
                 
                 Link("Privacy Policy", destination: URL(string: "https://www.quickcaloriesapp.com/privacy")!)
-                Link("Terms of Service", destination: URL(string: "https://example.com/terms")!)
+                Link("Terms of Service", destination: URL(string: "https://www.quickcaloriesapp.com/terms")!)
             }
         }
         .scrollDismissesKeyboard(.interactively)
@@ -218,6 +232,9 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showDeveloperConfig) {
             DeveloperConfigView()
+        }
+        .sheet(isPresented: $showDataSources) {
+            DataSourcesView()
         }
         .confirmationDialog(
             "Recalculate Targets",

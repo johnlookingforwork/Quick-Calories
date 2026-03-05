@@ -52,6 +52,12 @@ final class SettingsManager {
         }
     }
     
+    var hasAcceptedHealthDisclaimer: Bool = false {
+        didSet {
+            UserDefaults.standard.set(hasAcceptedHealthDisclaimer, forKey: "hasAcceptedHealthDisclaimer")
+        }
+    }
+    
     // Profile data for recalculation
     var userAge: Int = 0 {
         didSet {
@@ -136,6 +142,7 @@ final class SettingsManager {
         
         self.openAIApiKey = UserDefaults.standard.string(forKey: "openAIApiKey")
         self.hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+        self.hasAcceptedHealthDisclaimer = UserDefaults.standard.bool(forKey: "hasAcceptedHealthDisclaimer")
         self.dailyAIRequestCount = UserDefaults.standard.integer(forKey: "dailyAIRequestCount")
         self.lastRequestResetDate = UserDefaults.standard.object(forKey: "lastRequestResetDate") as? Date
         self.hasActiveSubscription = UserDefaults.standard.bool(forKey: "hasActiveSubscription")
@@ -207,7 +214,7 @@ final class SettingsManager {
         
         // Recalculate macros based on saved split type
         if let split = MacroSplit(rawValue: macroSplitType), split != .custom {
-            let macros = split.calculateMacros(totalCalories: dailyCalorieTarget)
+            let macros = split.calculateMacros(totalCalories: dailyCalorieTarget, bodyWeight: userWeight)
             proteinTarget = macros.protein
             carbsTarget = macros.carbs
             fatTarget = macros.fat

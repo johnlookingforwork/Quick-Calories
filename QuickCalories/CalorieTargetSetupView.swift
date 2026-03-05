@@ -453,7 +453,8 @@ struct CalorieTargetSetupView: View {
                 .padding(.vertical)
                 
                 // Macro breakdown
-                let macros = macroSplit.calculateMacros(totalCalories: calculatedCalories)
+                let bodyWeightKg = useMetric ? (Double(weight) ?? 70.0) : (Double(weight) ?? 154.0).lbsToKg
+                let macros = macroSplit.calculateMacros(totalCalories: calculatedCalories, bodyWeight: bodyWeightKg)
                 
                 VStack(spacing: 12) {
                     MacroRow(name: "Protein", amount: macros.protein, color: .red)
@@ -850,7 +851,8 @@ struct CalorieTargetSetupView: View {
                 fat: fatCals / 9.0
             )
         } else {
-            return macroSplit.calculateMacros(totalCalories: calories)
+            let bodyWeightKg = useMetric ? (Double(weight) ?? 70.0) : (Double(weight) ?? 154.0).lbsToKg
+            return macroSplit.calculateMacros(totalCalories: calories, bodyWeight: bodyWeightKg)
         }
     }
     
