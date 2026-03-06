@@ -50,6 +50,18 @@
             ReferencedContainer = "container:QuickCalories.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "PROXY_URL"
+            value = "https://calorie-app-proxy.vercel.app/api/proxy"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "APP_SECRET"
+            value = "V4YpJX76WDITydlKY35FurREzosg7WuW"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
       <StoreKitConfigurationFileReference
          identifier = "../../QuickCalories/StoreKitConfiguration.storekit">
       </StoreKitConfigurationFileReference>

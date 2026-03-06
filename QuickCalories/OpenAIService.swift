@@ -168,7 +168,11 @@ actor OpenAIService {
         let proxyURLString = await proxyURL
         let appSecretString = await appSecret
         
-        var request = URLRequest(url: URL(string: proxyURLString)!)
+        guard let url = URL(string: proxyURLString) else {
+            throw OpenAIError.apiError("Invalid proxy URL configuration")
+        }
+        
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(appSecretString, forHTTPHeaderField: "x-app-secret")

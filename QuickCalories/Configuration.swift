@@ -21,7 +21,13 @@ enum Configuration {
     
     /// The URL for the OpenAI proxy server
     static var proxyURL: String {
-        // Try to get from Info.plist first (Xcode Cloud build-time injection)
+        // Priority 1: Xcode environment variables (for local development)
+        if let url = ProcessInfo.processInfo.environment[Keys.proxyURL],
+           !url.isEmpty {
+            return url
+        }
+        
+        // Priority 2: Info.plist (Xcode Cloud build-time injection)
         if let url = Bundle.main.object(forInfoDictionaryKey: Keys.proxyURL) as? String,
            !url.isEmpty {
             return url
@@ -34,13 +40,19 @@ enum Configuration {
     
     /// The app secret for authenticating with the proxy
     static var appSecret: String {
-        // Try to get from Info.plist first (Xcode Cloud build-time injection)
+        // Priority 1: Xcode environment variables (for local development)
+        if let secret = ProcessInfo.processInfo.environment[Keys.appSecret],
+           !secret.isEmpty {
+            return secret
+        }
+        
+        // Priority 2: Info.plist (Xcode Cloud build-time injection)
         if let secret = Bundle.main.object(forInfoDictionaryKey: Keys.appSecret) as? String,
            !secret.isEmpty {
             return secret
         }
         
-        // For development: Check UserDefaults (set by developer in settings)
+        // Priority 3: UserDefaults (set by developer in settings UI)
         if let devSecret = UserDefaults.standard.string(forKey: "dev_app_secret"),
            !devSecret.isEmpty {
             return devSecret
