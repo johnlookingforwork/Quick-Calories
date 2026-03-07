@@ -21,6 +21,12 @@ struct SettingsView: View {
     
     private var settings = SettingsManager.shared
     
+    private var appVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+        return "\(version) (\(build))"
+    }
+    
     var body: some View {
         Form {
             Section {
@@ -199,7 +205,7 @@ struct SettingsView: View {
                 HStack {
                     Text("Version")
                     Spacer()
-                    Text("1.01")
+                    Text(appVersion)
                         .foregroundStyle(.secondary)
                 }
                 .contentShape(Rectangle())
