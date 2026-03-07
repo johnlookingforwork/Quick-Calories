@@ -159,11 +159,13 @@ final class SubscriptionManager {
     /// Listen for transaction updates
     private func listenForTransactions() -> Task<Void, Error> {
         return Task.detached { [weak self] in
+            guard let self = self else { return }
+            
             for await result in Transaction.updates {
                 do {
-                    let transaction = try await self?.checkVerified(result)
-                    await self?.updateSubscriptionStatus()
-                    await transaction?.finish()
+                    let transaction = try self.checkVerified(result)
+                    await self.updateSubscriptionStatus()
+                    await transaction.finish()
                 } catch {
                     print("❌ Transaction update failed: \(error)")
                 }
