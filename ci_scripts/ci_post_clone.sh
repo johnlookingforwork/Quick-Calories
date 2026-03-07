@@ -16,17 +16,23 @@ if [ -z "$CI" ]; then
     exit 0
 fi
 
-echo "CI_WORKSPACE: ${CI_WORKSPACE}"
-echo "CI_DERIVED_DATA_PATH: ${CI_DERIVED_DATA_PATH:-not set}"
+echo "CI_WORKSPACE: ${CI_WORKSPACE:-not set}"
 
-# Try the standard path first, then fall back to finding it
-INFO_PLIST="${CI_WORKSPACE}/QuickCalories/Info.plist"
+# Derive repo root from this script's location (ci_scripts/ is at repo root)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+echo "Repo root: $REPO_ROOT"
+
+# Use CI_WORKSPACE if set, otherwise fall back to derived repo root
+WORKSPACE="${CI_WORKSPACE:-$REPO_ROOT}"
+INFO_PLIST="${WORKSPACE}/QuickCalories/Info.plist"
 
 if [ ! -f "$INFO_PLIST" ]; then
-    echo "Info.plist not found at expected path, searching..."
-    FOUND=$(find "${CI_WORKSPACE}" -name "Info.plist" -not -path "*/DerivedData/*" -not -path "*/.git/*" 2>/dev/null | head -1)
+    echo "Info.plist not found at expected path: $INFO_PLIST"
+    echo "Searching under $WORKSPACE..."
+    FOUND=$(find "$WORKSPACE" -name "Info.plist" -not -path "*/DerivedData/*" -not -path "*/.git/*" 2>/dev/null | head -1)
     if [ -z "$FOUND" ]; then
-        echo "Error: Could not locate Info.plist anywhere under ${CI_WORKSPACE}"
+        echo "Error: Could not locate Info.plist anywhere under $WORKSPACE"
         exit 1
     fi
     INFO_PLIST="$FOUND"
