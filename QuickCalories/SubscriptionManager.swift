@@ -66,10 +66,52 @@ final class SubscriptionManager {
     func loadProducts() async {
         do {
             let productIdentifiers = SubscriptionTier.allCases.map { $0.rawValue }
-            products = try await Product.products(for: productIdentifiers)
+            print("🔍 Attempting to load products: \(productIdentifiers)")
+            
+            // Add a timeout to prevent indefinite hanging
+            products = try await withThrowingTaskGroup(of: [Product].self) { group in
+                // Task 1: Load products
+                group.addTask {
+                    try await Product.products(for: productIdentifiers)
+                }
+                
+                // Task 2: Timeout after 15 seconds
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 15_000_000_000)
+                    print("⚠️ Product loading timed out after 15 seconds")
+                    throw StoreError.productNotFound
+                }
+                
+                // Return the first result (either products or timeout)
+                let result = try await group.next()!
+                group.cancelAll()
+                return result
+            }
+            
             print("✅ Loaded \(products.count) products")
+            
+            if products.isEmpty {
+                print("⚠️ WARNING: Product.products() returned empty array")
+                print("   This usually means:")
+                print("   1. Product IDs don't exist in App Store Connect")
+                print("   2. Paid Applications agreement not signed")
+                print("   3. Products not approved/ready for sale")
+                print("   4. Not signed in to sandbox account (TestFlight)")
+            } else {
+                for product in products {
+                    print("   • \(product.id): \(product.displayName) - \(product.displayPrice)")
+                }
+            }
         } catch {
             print("❌ Failed to load products: \(error)")
+            print("   Error type: \(type(of: error))")
+            print("   Description: \(error.localizedDescription)")
+            
+            // Check if it's a StoreKit error
+            if let storeError = error as? StoreKitError {
+                print("   StoreKit Error Code: \(storeError)")
+            }
+            
             // Don't crash - just use empty products array
             products = []
         }

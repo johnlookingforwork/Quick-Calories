@@ -15,6 +15,8 @@ struct PaywallView: View {
     @State private var selectedProduct: Product?
     @State private var errorMessage: String?
     @State private var showAPIKeySheet = false
+    @State private var isLoadingProducts = true
+    @State private var productLoadError: String?
     
     var body: some View {
         NavigationStack {
@@ -68,9 +70,53 @@ struct PaywallView: View {
                     
                     // Pricing - Real StoreKit Products
                     VStack(spacing: 16) {
-                        if subscriptionManager.products.isEmpty {
-                            ProgressView()
-                                .padding()
+                        if isLoadingProducts {
+                            VStack(spacing: 12) {
+                                ProgressView()
+                                Text("Loading plans...")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding()
+                        } else if let productLoadError {
+                            // Show error when products fail to load
+                            VStack(spacing: 16) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 40))
+                                    .foregroundStyle(.orange)
+                                
+                                Text("Unable to Load Plans")
+                                    .font(.headline)
+                                
+                                Text(productLoadError)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                                
+                                Button("Retry") {
+                                    Task {
+                                        await loadProducts()
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                            .padding()
+                        } else if subscriptionManager.products.isEmpty {
+                            // No products available (shouldn't happen after loading)
+                            VStack(spacing: 12) {
+                                Text("No subscription plans available")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                
+                                Button("Retry") {
+                                    Task {
+                                        await loadProducts()
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                            .padding()
                         } else {
                             ForEach(subscriptionManager.products, id: \.id) { product in
                                 Button {
@@ -171,15 +217,40 @@ struct PaywallView: View {
         }
         .task {
             // Load products when view appears
-            if subscriptionManager.products.isEmpty {
-                await subscriptionManager.loadProducts()
-            }
+            await loadProducts()
+        }
+    }
+    
+    private func loadProducts() async {
+        isLoadingProducts = true
+        productLoadError = nil
+        
+        print("📱 PaywallView: Starting product load")
+        
+        // Load products (now has built-in timeout in SubscriptionManager)
+        await subscriptionManager.loadProducts()
+        
+        // Check if products actually loaded
+        if subscriptionManager.products.isEmpty {
+            print("⚠️ PaywallView: No products loaded")
+            productLoadError = """
+            No subscription products found. This may mean:
+            • Product IDs don't exist in App Store Connect
+            • Paid Applications agreement not signed
+            • Products not approved for sale
+            • StoreKit timed out
             
+            Please use your own OpenAI API key instead.
+            """
+        } else {
+            print("✅ PaywallView: Loaded \(subscriptionManager.products.count) products")
             // Auto-select the annual plan (recommended)
             if selectedProduct == nil {
                 selectedProduct = subscriptionManager.product(for: .annual)
             }
         }
+        
+        isLoadingProducts = false
     }
     
     private func purchaseSubscription() {
