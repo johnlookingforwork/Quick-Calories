@@ -22,6 +22,22 @@ struct PaywallView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 32) {
+                    #if DEBUG
+                    // Debug banner for local StoreKit testing
+                    if subscriptionManager.isUsingLocalConfiguration {
+                        HStack {
+                            Image(systemName: "hammer.fill")
+                            Text("Using Local StoreKit Configuration")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .padding(8)
+                        .background(Color.orange.opacity(0.2))
+                        .foregroundStyle(.orange)
+                        .cornerRadius(8)
+                    }
+                    #endif
+                    
                     // Header
                     VStack(spacing: 12) {
                         Image(systemName: "bolt.circle.fill")

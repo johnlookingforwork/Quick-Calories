@@ -44,6 +44,18 @@ final class SubscriptionManager {
     
     private var updateListenerTask: Task<Void, Error>?
     
+    /// Indicates if using local StoreKit configuration (for development)
+    /// Returns true when testing locally with a .storekit file
+    var isUsingLocalConfiguration: Bool {
+        #if DEBUG
+        // In local builds, check if we have products loaded
+        // This is a simple heuristic for local testing
+        return !products.isEmpty
+        #else
+        return false
+        #endif
+    }
+    
     private init() {
         // Start listening for transactions
         updateListenerTask = listenForTransactions()
@@ -68,25 +80,7 @@ final class SubscriptionManager {
             let productIdentifiers = SubscriptionTier.allCases.map { $0.rawValue }
             print("🔍 Attempting to load products: \(productIdentifiers)")
             
-            // Add a timeout to prevent indefinite hanging
-            products = try await withThrowingTaskGroup(of: [Product].self) { group in
-                // Task 1: Load products
-                group.addTask {
-                    try await Product.products(for: productIdentifiers)
-                }
-                
-                // Task 2: Timeout after 15 seconds
-                group.addTask {
-                    try await Task.sleep(nanoseconds: 15_000_000_000)
-                    print("⚠️ Product loading timed out after 15 seconds")
-                    throw StoreError.productNotFound
-                }
-                
-                // Return the first result (either products or timeout)
-                let result = try await group.next()!
-                group.cancelAll()
-                return result
-            }
+            products = try await Product.products(for: productIdentifiers)
             
             print("✅ Loaded \(products.count) products")
             
