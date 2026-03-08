@@ -24,7 +24,7 @@
     "_developerTeamID" : "YBN78D2579",
     "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 794105736.18519998,
+    "_lastSynchronizedDate" : 794627182.21178901,
     "_locale" : "en_US",
     "_renewalBillingIssuesEnabled" : false,
     "_storefront" : "USA",
@@ -53,7 +53,7 @@
           "groupNumber" : 1,
           "internalID" : "6759843399",
           "introductoryOffer" : {
-            "internalID" : "2B88FAA6",
+            "internalID" : "996E43E1",
             "numberOfPeriods" : 1,
             "paymentMode" : "free",
             "subscriptionPeriod" : "P1W"
@@ -86,7 +86,7 @@
           "groupNumber" : 2,
           "internalID" : "6759843430",
           "introductoryOffer" : {
-            "internalID" : "603383E7",
+            "internalID" : "39FE946A",
             "numberOfPeriods" : 1,
             "paymentMode" : "free",
             "subscriptionPeriod" : "P1W"
