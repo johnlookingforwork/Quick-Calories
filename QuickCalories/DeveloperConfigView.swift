@@ -6,12 +6,16 @@
 //
 
 import SwiftUI
+import StoreKit
 
 struct DeveloperConfigView: View {
     @State private var appSecret = UserDefaults.standard.string(forKey: "dev_app_secret") ?? ""
     @State private var showingSaved = false
     @State private var showDebugInfo = false
+    @State private var showStoreKitDebug = false
     @Environment(\.dismiss) private var dismiss
+    
+    private var subscriptionManager = SubscriptionManager.shared
     
     var body: some View {
         NavigationStack {
@@ -132,6 +136,165 @@ struct DeveloperConfigView: View {
                     }
                 } header: {
                     Text("Debug Information")
+                }
+                
+                // MARK: - StoreKit Debug Section
+                Section {
+                    Button {
+                        showStoreKitDebug.toggle()
+                    } label: {
+                        HStack {
+                            Label("StoreKit Debug Info", systemImage: "cart.fill")
+                            Spacer()
+                            Image(systemName: showStoreKitDebug ? "chevron.up" : "chevron.down")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    if showStoreKitDebug {
+                        VStack(alignment: .leading, spacing: 12) {
+                            // Bundle ID
+                            DebugInfoRow(
+                                title: "Bundle ID",
+                                value: Bundle.main.bundleIdentifier ?? "(not found)",
+                                color: .blue
+                            )
+                            
+                            Divider()
+                            
+                            // Expected Product IDs
+                            Text("Expected Product IDs")
+                                .font(.caption.bold())
+                                .foregroundStyle(.primary)
+                            
+                            DebugInfoRow(
+                                title: "Annual",
+                                value: SubscriptionTier.annual.rawValue,
+                                color: .blue
+                            )
+                            
+                            DebugInfoRow(
+                                title: "Monthly",
+                                value: SubscriptionTier.monthly.rawValue,
+                                color: .blue
+                            )
+                            
+                            Divider()
+                            
+                            // Products Loaded
+                            Text("Products Loaded from App Store")
+                                .font(.caption.bold())
+                                .foregroundStyle(.primary)
+                            
+                            DebugInfoRow(
+                                title: "Count",
+                                value: "\(subscriptionManager.products.count)",
+                                color: subscriptionManager.products.isEmpty ? .red : .green
+                            )
+                            
+                            if subscriptionManager.products.isEmpty {
+                                Text("⚠️ No products loaded!")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                                    .padding(.vertical, 4)
+                                
+                                Text("Possible reasons:")
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.secondary)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("• Product IDs don't match Bundle ID")
+                                    Text("• Products not approved in App Store Connect")
+                                    Text("• Paid Applications Agreement not signed")
+                                    Text("• Not using TestFlight build")
+                                    Text("• StoreKit config file selected in scheme")
+                                }
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .padding(.leading, 8)
+                            } else {
+                                ForEach(subscriptionManager.products, id: \.id) { product in
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("✅ \(product.displayName)")
+                                            .font(.caption.bold())
+                                            .foregroundStyle(.green)
+                                        
+                                        Text(product.id)
+                                            .font(.caption2.monospaced())
+                                            .foregroundStyle(.secondary)
+                                        
+                                        Text(product.displayPrice)
+                                            .font(.caption2)
+                                            .foregroundStyle(.blue)
+                                    }
+                                    .padding(.vertical, 4)
+                                }
+                            }
+                            
+                            Divider()
+                            
+                            // Active Subscriptions
+                            Text("Active Subscriptions")
+                                .font(.caption.bold())
+                                .foregroundStyle(.primary)
+                            
+                            DebugInfoRow(
+                                title: "Count",
+                                value: "\(subscriptionManager.purchasedSubscriptions.count)",
+                                color: subscriptionManager.hasActiveSubscription ? .green : .secondary
+                            )
+                            
+                            DebugInfoRow(
+                                title: "Has Active Subscription",
+                                value: subscriptionManager.hasActiveSubscription ? "✅ YES" : "❌ NO",
+                                color: subscriptionManager.hasActiveSubscription ? .green : .secondary
+                            )
+                            
+                            Divider()
+                            
+                            // Configuration Status
+                            Text("Build Configuration")
+                                .font(.caption.bold())
+                                .foregroundStyle(.primary)
+                            
+                            DebugInfoRow(
+                                title: "Using Local StoreKit Config",
+                                value: subscriptionManager.isUsingLocalConfiguration ? "⚠️ YES" : "✅ NO",
+                                color: subscriptionManager.isUsingLocalConfiguration ? .orange : .green
+                            )
+                            
+                            if subscriptionManager.isUsingLocalConfiguration {
+                                Text("⚠️ You're testing with local .storekit file. Real purchases won't work until you test with a TestFlight build.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.orange)
+                                    .padding(.top, 4)
+                            }
+                            
+                            Divider()
+                            
+                            // Refresh Button
+                            Button {
+                                Task {
+                                    await subscriptionManager.loadProducts()
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("Reload Products")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .font(.caption)
+                        .padding(.vertical, 8)
+                    }
+                } header: {
+                    Text("StoreKit Diagnostics")
+                } footer: {
+                    Text("Check console logs in Xcode for detailed StoreKit error messages.")
                 }
                 
                 Section {

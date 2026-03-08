@@ -249,14 +249,29 @@ struct PaywallView: View {
         // Check if products actually loaded
         if subscriptionManager.products.isEmpty {
             print("⚠️ PaywallView: No products loaded")
-            productLoadError = """
-            No subscription products found. This may mean:
-            • Product IDs don't exist in App Store Connect
-            • Paid Applications agreement not signed
-            • Products not approved for sale
-            • StoreKit timed out
             
-            Please use your own OpenAI API key instead.
+            let bundleID = Bundle.main.bundleIdentifier ?? "unknown"
+            let expectedProducts = """
+            • \(SubscriptionTier.annual.rawValue)
+            • \(SubscriptionTier.monthly.rawValue)
+            """
+            
+            productLoadError = """
+            No subscription products found.
+            
+            Bundle ID: \(bundleID)
+            
+            Expected Product IDs:
+            \(expectedProducts)
+            
+            Common causes:
+            • Product IDs don't match Bundle ID prefix
+            • Products not approved in App Store Connect
+            • Paid Applications Agreement not signed
+            • Not using TestFlight build
+            • Local StoreKit config still active
+            
+            Check Settings → Developer Config → StoreKit Debug Info for more details.
             """
         } else {
             print("✅ PaywallView: Loaded \(subscriptionManager.products.count) products")
