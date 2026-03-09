@@ -24,7 +24,7 @@
     "_developerTeamID" : "YBN78D2579",
     "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 794627182.21178901,
+    "_lastSynchronizedDate" : 794722918.83404803,
     "_locale" : "en_US",
     "_renewalBillingIssuesEnabled" : false,
     "_storefront" : "USA",
@@ -35,11 +35,11 @@
   },
   "subscriptionGroups" : [
     {
-      "id" : "21954850",
+      "id" : "21966716",
       "localizations" : [
 
       ],
-      "name" : "com.johnn.quickcalories.subscription",
+      "name" : "Unlimited AI Logging",
       "subscriptions" : [
         {
           "adHocOffers" : [
@@ -51,13 +51,8 @@
           "displayPrice" : "24.99",
           "familyShareable" : false,
           "groupNumber" : 1,
-          "internalID" : "6759843399",
-          "introductoryOffer" : {
-            "internalID" : "996E43E1",
-            "numberOfPeriods" : 1,
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1W"
-          },
+          "internalID" : "6760244691",
+          "introductoryOffer" : null,
           "localizations" : [
             {
               "description" : "This is a one year subscription to use AI logging.",
@@ -65,10 +60,10 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.johnn.quickcalories.subscription.annual",
+          "productID" : "com.JohnN.quickcalories.annual",
           "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "com.johnn.quickcalories.subscription.annual",
-          "subscriptionGroupID" : "21954850",
+          "referenceName" : "com.JohnN.quickcalories.annual",
+          "subscriptionGroupID" : "21966716",
           "type" : "RecurringSubscription",
           "winbackOffers" : [
 
@@ -84,13 +79,8 @@
           "displayPrice" : "2.99",
           "familyShareable" : false,
           "groupNumber" : 2,
-          "internalID" : "6759843430",
-          "introductoryOffer" : {
-            "internalID" : "39FE946A",
-            "numberOfPeriods" : 1,
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1W"
-          },
+          "internalID" : "6760244727",
+          "introductoryOffer" : null,
           "localizations" : [
             {
               "description" : "This is a one month subscription to use AI logging.",
@@ -98,10 +88,10 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.johnn.quickcalories.subscription.monthly",
+          "productID" : "com.JohnN.quickcalories.monthly",
           "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "com.johnn.quickcalories.subscription.monthly",
-          "subscriptionGroupID" : "21954850",
+          "referenceName" : "com.JohnN.quickcalories.monthly",
+          "subscriptionGroupID" : "21966716",
           "type" : "RecurringSubscription",
           "winbackOffers" : [
 

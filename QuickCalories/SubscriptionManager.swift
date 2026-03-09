@@ -10,8 +10,8 @@ import StoreKit
 import Observation
 
 enum SubscriptionTier: String, CaseIterable {
-    case monthly = "com.johnn.quickcalories.subscription.monthly"
-    case annual = "com.johnn.quickcalories.subscription.annual"
+    case monthly = "com.JohnN.quickcalories.monthly"
+    case annual = "com.JohnN.quickcalories.annual"
     
     var displayName: String {
         switch self {
