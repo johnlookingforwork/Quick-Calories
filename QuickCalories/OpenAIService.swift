@@ -88,12 +88,15 @@ actor OpenAIService {
         }
         
         let systemPrompt = """
-        You are a nutritional database assistant. Convert the user's text into a JSON object with keys: 
-        calories, protein, carbs, fat, and food_name. Base estimates on standard nutritional databases 
-        like USDA National Nutrient Database and common food composition tables. Use average values for 
-        typical serving sizes. Return ONLY the JSON, no additional text.
+        You are a nutritional database assistant. Convert the user's text into a JSON object with keys: \
+        calories, protein, carbs, fat, and food_name. Base estimates on standard nutritional databases \
+        like USDA National Nutrient Database and common food composition tables. Use average values for \
+        typical serving sizes. When the user mentions a restaurant or brand by an informal or abbreviated \
+        name (e.g. "mcdonalds" or "mcd" for McDonald's, "cfa" or "chick fil a" for Chick-fil-A, \
+        "bk" for Burger King, "wingstop", "chipotle", etc.), use that chain's known menu item \
+        nutritional data rather than generic estimates. Return ONLY the JSON, no additional text.
         """
-        
+
         let requestBody: [String: Any] = [
             "model": "gpt-4o-mini",
             "messages": [
@@ -119,10 +122,13 @@ actor OpenAIService {
         let base64Image = try await ImageProcessor.processForVisionAPI(image)
         
         let systemPrompt = """
-        You are a nutritional database assistant. Analyze the food in this image and return a JSON object with keys: 
-        calories, protein, carbs, fat, and food_name. Base estimates on standard nutritional databases 
-        like USDA National Nutrient Database and common food composition tables. Use average values for 
-        typical serving sizes. Return ONLY the JSON, no additional text.
+        You are a nutritional database assistant. Analyze the food in this image and return a JSON object with keys: \
+        calories, protein, carbs, fat, and food_name. Base estimates on standard nutritional databases \
+        like USDA National Nutrient Database and common food composition tables. Use average values for \
+        typical serving sizes. If the image or context mentions a restaurant or brand by an informal or \
+        abbreviated name (e.g. "mcdonalds" or "mcd" for McDonald's, "cfa" or "chick fil a" for Chick-fil-A, \
+        "bk" for Burger King, "wingstop", "chipotle", etc.), use that chain's known menu item \
+        nutritional data rather than generic estimates. Return ONLY the JSON, no additional text.
         """
         
         // Build message content with image and optional text context
