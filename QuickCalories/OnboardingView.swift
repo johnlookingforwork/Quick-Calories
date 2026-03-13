@@ -48,12 +48,15 @@ struct OnboardingView: View {
                     )
                     .tag(3)
                     
+                    PrivacyPage()
+                        .tag(4)
+                    
                     GetStartedPage {
                         withAnimation {
                             showTargetSetup = true
                         }
                     }
-                    .tag(4)
+                    .tag(5)
                 }
                 .tabViewStyle(.page)
                 .indexViewStyle(.page(backgroundDisplayMode: .always))
@@ -147,6 +150,88 @@ struct FeaturePage: View {
     }
 }
 
+struct PrivacyPage: View {
+    var body: some View {
+        VStack(spacing: 32) {
+            Spacer()
+            
+            VStack(spacing: 24) {
+                Image(systemName: "lock.shield.fill")
+                    .font(.system(size: 80))
+                    .foregroundStyle(.green.gradient)
+                
+                VStack(spacing: 12) {
+                    Text("Your Privacy Matters")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("All your data stays on your device")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+                
+                VStack(spacing: 16) {
+                    PrivacyFeatureRow(
+                        icon: "iphone",
+                        text: "Everything stored locally"
+                    )
+                    
+                    PrivacyFeatureRow(
+                        icon: "xmark.circle",
+                        text: "No data collection"
+                    )
+                    
+                    PrivacyFeatureRow(
+                        icon: "hand.raised.fill",
+                        text: "No tracking or analytics"
+                    )
+                    
+                    PrivacyFeatureRow(
+                        icon: "checkmark.shield.fill",
+                        text: "Your health info is private"
+                    )
+                }
+                .padding(.horizontal, 32)
+            }
+            
+            Spacer()
+            
+            Text("Swipe to continue")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 40)
+        }
+        .padding()
+    }
+}
+
+struct PrivacyFeatureRow: View {
+    let icon: String
+    let text: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundStyle(.green)
+                .frame(width: 30)
+            
+            Text(text)
+                .font(.body)
+                .foregroundStyle(.primary)
+            
+            Spacer()
+        }
+        .padding()
+        .background(Color.green.opacity(0.1))
+        .cornerRadius(12)
+    }
+}
+
 struct GetStartedPage: View {
     let onGetStarted: () -> Void
     
@@ -157,7 +242,7 @@ struct GetStartedPage: View {
             VStack(spacing: 24) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 80))
-                    .foregroundStyle(.green.gradient)
+                    .foregroundStyle(.blue.gradient)
                 
                 VStack(spacing: 12) {
                     Text("Ready to Get Started?")
