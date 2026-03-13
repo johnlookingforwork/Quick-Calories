@@ -37,6 +37,17 @@ struct CalorieTargetSetupView: View {
     @State private var customCarbsPercent: Double = 40
     @State private var customFatPercent: Double = 30
     
+    // Macro input mode
+    @State private var macroInputMode: MacroInputMode = .percentage
+    @State private var customProteinGrams: Double = 150
+    @State private var customCarbsGrams: Double = 200
+    @State private var customFatGrams: Double = 67
+    
+    enum MacroInputMode {
+        case percentage
+        case grams
+    }
+    
     // Manual calorie input
     @State private var manualCalories: Int = 2000
     
@@ -557,35 +568,88 @@ struct CalorieTargetSetupView: View {
             
             // Custom sliders (if custom selected)
             if macroSplit == .custom {
-                VStack(spacing: 16) {
-                    MacroPercentageSlider(
-                        name: "Protein",
-                        percentage: $customProteinPercent,
-                        color: .red
-                    )
-                    
-                    MacroPercentageSlider(
-                        name: "Carbs",
-                        percentage: $customCarbsPercent,
-                        color: .blue
-                    )
-                    
-                    MacroPercentageSlider(
-                        name: "Fat",
-                        percentage: $customFatPercent,
-                        color: .yellow
-                    )
-                    
-                    let total = customProteinPercent + customCarbsPercent + customFatPercent
-                    if abs(total - 100) > 0.5 {
-                        Text("⚠️ Percentages should total 100%")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
+                Picker("Input Mode", selection: $macroInputMode) {
+                    Text("Percentage").tag(MacroInputMode.percentage)
+                    Text("Grams").tag(MacroInputMode.grams)
                 }
-                .padding()
-                .background(Color(uiColor: .secondarySystemBackground))
-                .cornerRadius(12)
+                .pickerStyle(.segmented)
+                
+                if macroInputMode == .percentage {
+                    VStack(spacing: 16) {
+                        MacroPercentageSlider(
+                            name: "Protein",
+                            percentage: $customProteinPercent,
+                            color: .red,
+                            onChanged: { updateGramsFromPercentages() }
+                        )
+                        
+                        MacroPercentageSlider(
+                            name: "Carbs",
+                            percentage: $customCarbsPercent,
+                            color: .blue,
+                            onChanged: { updateGramsFromPercentages() }
+                        )
+                        
+                        MacroPercentageSlider(
+                            name: "Fat",
+                            percentage: $customFatPercent,
+                            color: .yellow,
+                            onChanged: { updateGramsFromPercentages() }
+                        )
+                        
+                        let total = customProteinPercent + customCarbsPercent + customFatPercent
+                        if abs(total - 100) > 0.5 {
+                            Text("⚠️ Percentages should total 100%")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                    .padding()
+                    .background(Color(uiColor: .secondarySystemBackground))
+                    .cornerRadius(12)
+                } else {
+                    VStack(spacing: 16) {
+                        MacroGramSlider(
+                            name: "Protein",
+                            grams: $customProteinGrams,
+                            color: .red,
+                            caloriesPerGram: 4,
+                            onChanged: { updatePercentsFromGrams() }
+                        )
+                        
+                        MacroGramSlider(
+                            name: "Carbs",
+                            grams: $customCarbsGrams,
+                            color: .blue,
+                            caloriesPerGram: 4,
+                            onChanged: { updatePercentsFromGrams() }
+                        )
+                        
+                        MacroGramSlider(
+                            name: "Fat",
+                            grams: $customFatGrams,
+                            color: .yellow,
+                            caloriesPerGram: 9,
+                            onChanged: { updatePercentsFromGrams() }
+                        )
+                        
+                        let totalMacroCalories = (customProteinGrams * 4) + (customCarbsGrams * 4) + (customFatGrams * 9)
+                        let targetCalories = Double(setupMode == .guided ? calculatedCalories : manualCalories)
+                        
+                        if abs(totalMacroCalories - targetCalories) > 10 {
+                            HStack(spacing: 4) {
+                                Image(systemName: "info.circle.fill")
+                                    .foregroundStyle(.blue)
+                                Text("Calorie target will be adjusted to \(Int(totalMacroCalories)) to match macros")
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                        }
+                    }
+                    .padding()
+                    .background(Color(uiColor: .secondarySystemBackground))
+                    .cornerRadius(12)
+                }
             }
             
             // Preview
@@ -724,6 +788,11 @@ struct CalorieTargetSetupView: View {
         let name: String
         @Binding var percentage: Double
         let color: Color
+        var onChanged: (() -> Void)?
+        
+        @State private var isEditing = false
+        @State private var textInput = ""
+        @FocusState private var isFocused: Bool
         
         var body: some View {
             VStack(spacing: 8) {
@@ -740,18 +809,187 @@ struct CalorieTargetSetupView: View {
                     
                     Spacer()
                     
-                    Text("\(Int(percentage))%")
-                        .font(.headline)
-                        .foregroundStyle(color)
+                    if isEditing {
+                        HStack(spacing: 4) {
+                            TextField("30", text: $textInput)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.trailing)
+                                .font(.headline)
+                                .foregroundStyle(color)
+                                .frame(width: 50)
+                                .focused($isFocused)
+                                .onSubmit {
+                                    commitEdit()
+                                }
+                            
+                            Text("%")
+                                .font(.headline)
+                                .foregroundStyle(color)
+                            
+                            Button {
+                                commitEdit()
+                            } label: {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                            }
+                        }
+                    } else {
+                        HStack(spacing: 4) {
+                            Text("\(Int(percentage))%")
+                                .font(.headline)
+                                .foregroundStyle(color)
+                            
+                            Button {
+                                startEditing()
+                            } label: {
+                                Image(systemName: "pencil.circle")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            startEditing()
+                        }
+                    }
                 }
                 
                 Slider(value: $percentage, in: 10...60, step: 5)
                     .tint(color)
+                    .disabled(isEditing)
+                    .onChange(of: percentage) { _, _ in
+                        onChanged?()
+                    }
             }
+        }
+        
+        private func startEditing() {
+            textInput = "\(Int(percentage))"
+            isEditing = true
+            isFocused = true
+        }
+        
+        private func commitEdit() {
+            if let value = Double(textInput), value >= 10 && value <= 60 {
+                percentage = value
+                onChanged?()
+            }
+            isEditing = false
+            isFocused = false
+        }
+    }
+    
+    private struct MacroGramSlider: View {
+        let name: String
+        @Binding var grams: Double
+        let color: Color
+        let caloriesPerGram: Double
+        var onChanged: (() -> Void)?
+        
+        @State private var isEditing = false
+        @State private var textInput = ""
+        @FocusState private var isFocused: Bool
+        
+        var body: some View {
+            VStack(spacing: 8) {
+                HStack {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(color)
+                            .frame(width: 12, height: 12)
+                        
+                        Text(name)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                    
+                    Spacer()
+                    
+                    if isEditing {
+                        HStack(spacing: 4) {
+                            TextField("150", text: $textInput)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.trailing)
+                                .font(.headline)
+                                .foregroundStyle(color)
+                                .frame(width: 60)
+                                .focused($isFocused)
+                                .onSubmit {
+                                    commitEdit()
+                                }
+                            
+                            Text("g")
+                                .font(.headline)
+                                .foregroundStyle(color)
+                            
+                            Button {
+                                commitEdit()
+                            } label: {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                            }
+                        }
+                    } else {
+                        HStack(spacing: 4) {
+                            Text("\(Int(grams))g")
+                                .font(.headline)
+                                .foregroundStyle(color)
+                            
+                            Button {
+                                startEditing()
+                            } label: {
+                                Image(systemName: "pencil.circle")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            startEditing()
+                        }
+                    }
+                }
+                
+                Slider(value: $grams, in: 20...300, step: 5)
+                    .tint(color)
+                    .disabled(isEditing)
+                    .onChange(of: grams) { _, _ in
+                        onChanged?()
+                    }
+            }
+        }
+        
+        private func startEditing() {
+            textInput = "\(Int(grams))"
+            isEditing = true
+            isFocused = true
+        }
+        
+        private func commitEdit() {
+            if let value = Double(textInput), value >= 20 && value <= 300 {
+                grams = value
+                onChanged?()
+            }
+            isEditing = false
+            isFocused = false
         }
     }
     
     // MARK: - Logic
+    
+    private func updateGramsFromPercentages() {
+        let totalCals = Double(setupMode == .guided ? calculatedCalories : manualCalories)
+        customProteinGrams = (totalCals * customProteinPercent / 100) / 4
+        customCarbsGrams = (totalCals * customCarbsPercent / 100) / 4
+        customFatGrams = (totalCals * customFatPercent / 100) / 9
+    }
+    
+    private func updatePercentsFromGrams() {
+        let totalCals = Double(setupMode == .guided ? calculatedCalories : manualCalories)
+        customProteinPercent = (customProteinGrams * 4 / totalCals) * 100
+        customCarbsPercent = (customCarbsGrams * 4 / totalCals) * 100
+        customFatPercent = (customFatGrams * 9 / totalCals) * 100
+    }
     
     private var canContinue: Bool {
         switch setupMode {
@@ -766,13 +1004,27 @@ struct CalorieTargetSetupView: View {
                 } else {
                     return true // Pickers always have a value
                 }
-            case 5: return macroSplit != .custom || abs(customProteinPercent + customCarbsPercent + customFatPercent - 100) < 0.5
+            case 5:
+                if macroSplit != .custom { return true }
+                if macroInputMode == .percentage {
+                    return abs(customProteinPercent + customCarbsPercent + customFatPercent - 100) < 0.5
+                } else {
+                    // In grams mode, always allow (will auto-adjust calories)
+                    return true
+                }
             default: return false
             }
         case .manual:
             switch currentStep {
             case 1: return manualCalories >= 1200 && manualCalories <= 4000
-            case 2: return macroSplit != .custom || abs(customProteinPercent + customCarbsPercent + customFatPercent - 100) < 0.5
+            case 2:
+                if macroSplit != .custom { return true }
+                if macroInputMode == .percentage {
+                    return abs(customProteinPercent + customCarbsPercent + customFatPercent - 100) < 0.5
+                } else {
+                    // In grams mode, always allow (will auto-adjust calories)
+                    return true
+                }
             default: return false
             }
         }
@@ -859,10 +1111,19 @@ struct CalorieTargetSetupView: View {
     private func saveTargets() {
         let settings = SettingsManager.shared
         
+        // Adjust calories if in grams mode and custom macros
+        var finalCalories: Int
+        if macroSplit == .custom && macroInputMode == .grams {
+            let macroCalories = Int((customProteinGrams * 4) + (customCarbsGrams * 4) + (customFatGrams * 9))
+            finalCalories = macroCalories
+        } else {
+            finalCalories = setupMode == .guided ? calculatedCalories : manualCalories
+        }
+        
         // Save calorie target
         if setupMode == .guided {
-            dailyCalorieTarget = calculatedCalories
-            settings.dailyCalorieTarget = calculatedCalories
+            dailyCalorieTarget = finalCalories
+            settings.dailyCalorieTarget = finalCalories
             
             // Save profile data
             if let ageInt = Int(age), let weightDouble = Double(weight) {
@@ -887,7 +1148,7 @@ struct CalorieTargetSetupView: View {
             }
             
             // Calculate and save macros
-            let macros = calculateFinalMacros(calories: calculatedCalories)
+            let macros = calculateFinalMacros(calories: finalCalories)
             proteinTarget = macros.protein
             carbsTarget = macros.carbs
             fatTarget = macros.fat
@@ -895,10 +1156,10 @@ struct CalorieTargetSetupView: View {
             settings.carbsTarget = macros.carbs
             settings.fatTarget = macros.fat
         } else {
-            dailyCalorieTarget = manualCalories
-            settings.dailyCalorieTarget = manualCalories
+            dailyCalorieTarget = finalCalories
+            settings.dailyCalorieTarget = finalCalories
             
-            let macros = calculateFinalMacros(calories: manualCalories)
+            let macros = calculateFinalMacros(calories: finalCalories)
             proteinTarget = macros.protein
             carbsTarget = macros.carbs
             fatTarget = macros.fat

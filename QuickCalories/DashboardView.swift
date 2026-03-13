@@ -160,7 +160,7 @@ struct DashboardView: View {
                             List {
                                 ForEach(displayDateEntries) { entry in
                                     FoodEntryRow(entry: entry)
-                                        .listRowInsets(EdgeInsets())
+                                        .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
                                         .listRowBackground(Color.clear)
                                         .listRowSeparator(.hidden)
                                         .onTapGesture {
@@ -184,7 +184,7 @@ struct DashboardView: View {
                                 }
                             }
                             .listStyle(.plain)
-                            .frame(height: CGFloat(displayDateEntries.count) * 130)
+                            .frame(height: CGFloat(displayDateEntries.count) * 142)
                             .scrollDisabled(true)
                         }
                     }

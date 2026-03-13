@@ -121,6 +121,15 @@ actor OpenAIService {
         // Process image for Vision API
         let base64Image = try await ImageProcessor.processForVisionAPI(image)
         
+        // Extract camera metadata
+        let metadata = await ImageMetadataExtractor.extractMetadata(from: image)
+        
+        // Build enhanced context with camera info
+        let enhancedContext = buildEnhancedContext(
+            userContext: context,
+            metadata: metadata
+        )
+        
         let systemPrompt = """
         You are a nutritional database assistant. Analyze the food in this image and return a JSON object with keys: \
         calories, protein, carbs, fat, and food_name. Base estimates on standard nutritional databases \
@@ -128,14 +137,22 @@ actor OpenAIService {
         typical serving sizes. If the image or context mentions a restaurant or brand by an informal or \
         abbreviated name (e.g. "mcdonalds" or "mcd" for McDonald's, "cfa" or "chick fil a" for Chick-fil-A, \
         "bk" for Burger King, "wingstop", "chipotle", etc.), use that chain's known menu item \
-        nutritional data rather than generic estimates. Return ONLY the JSON, no additional text.
+        nutritional data rather than generic estimates.
+        
+        IMPORTANT FOR SIZE ESTIMATION:
+        Use the provided camera metadata (device model, lens type, focal length) to better estimate portion sizes. \
+        Different iPhone cameras have different field of view and perspective distortion. Ultra-wide lenses make \
+        objects appear smaller; telephoto lenses make them appear larger. Adjust your portion size estimates \
+        accordingly based on the camera used. Consider the device model's known physical dimensions for scale reference.
+        
+        Return ONLY the JSON, no additional text.
         """
         
-        // Build message content with image and optional text context
+        // Build message content with image and enhanced text context
         let userContent: [[String: Any]] = [
             [
                 "type": "text",
-                "text": context ?? "Analyze this food image and provide nutritional information."
+                "text": enhancedContext
             ],
             [
                 "type": "image_url",
@@ -156,6 +173,45 @@ actor OpenAIService {
         ]
         
         return try await sendRequest(requestBody)
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func buildEnhancedContext(
+        userContext: String?,
+        metadata: CameraMetadata?
+    ) -> String {
+        var contextParts: [String] = []
+        
+        // User's text context
+        if let context = userContext {
+            contextParts.append("User context: \(context)")
+        } else {
+            contextParts.append("Analyze this food image and provide nutritional information.")
+        }
+        
+        // Camera metadata
+        if let metadata = metadata {
+            var cameraInfo = "Camera: \(metadata.deviceModel)"
+            
+            if let lens = metadata.cameraLensType {
+                cameraInfo += ", \(lens) lens"
+            }
+            
+            if let focal = metadata.focalLength35mmEquivalent {
+                cameraInfo += ", \(focal)mm equivalent"
+            }
+            
+            if let aperture = metadata.aperture {
+                cameraInfo += ", f/\(String(format: "%.1f", aperture))"
+            }
+            
+            cameraInfo += ", image size: \(metadata.imageWidth)x\(metadata.imageHeight)px"
+            
+            contextParts.append(cameraInfo)
+        }
+        
+        return contextParts.joined(separator: "\n")
     }
     
     // MARK: - Private Helpers
