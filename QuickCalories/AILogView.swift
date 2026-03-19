@@ -7,6 +7,8 @@
 
 import SwiftUI
 import SwiftData
+import PhotosUI
+import AVFoundation
 
 // Wrapper to make NutritionResponse identifiable for sheet presentation
 struct IdentifiableNutritionData: Identifiable {
@@ -31,7 +33,10 @@ struct AILogView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showPaywall = false
-    @State private var showPhotoPicker = false
+    @State private var showCamera = false
+    @State private var showPermissionAlert = false
+    @State private var permissionAlertMessage = ""
+    @State private var photoPickerItem: PhotosPickerItem?
     @State private var parsedNutrition: IdentifiableNutritionData?
     @FocusState private var isTextFieldFocused: Bool
     @FocusState private var isPhotoContextFocused: Bool
@@ -104,7 +109,7 @@ struct AILogView: View {
                                 
                                 // Change photo button
                                 Button {
-                                    showPhotoPicker = true
+                                    showCamera = true
                                 } label: {
                                     Label("Change Photo", systemImage: "photo")
                                         .font(.subheadline)
@@ -121,23 +126,39 @@ struct AILogView: View {
                                 Text("Take a photo of your food")
                                     .font(.headline)
                                 
-                                Button {
-                                    showPhotoPicker = true
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "photo.on.rectangle")
-                                        Text("Select Photo")
+                                VStack(spacing: 12) {
+                                    Button {
+                                        checkCameraPermission()
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: "camera.fill")
+                                            Text("Take Photo")
+                                        }
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(Color.accentColor)
+                                        .cornerRadius(12)
                                     }
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(Color.accentColor)
-                                    .cornerRadius(12)
+                                    
+                                    PhotosPicker(selection: $photoPickerItem, matching: .images) {
+                                        HStack {
+                                            Image(systemName: "photo.on.rectangle")
+                                            Text("Choose from Library")
+                                        }
+                                        .font(.headline)
+                                        .foregroundColor(.accentColor)
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(Color.accentColor.opacity(0.1))
+                                        .cornerRadius(12)
+                                    }
                                 }
+                                .padding(.horizontal)
                             }
                             .frame(maxWidth: .infinity)
-                            .frame(height: 200)
+                            .padding(.vertical, 20)
                             .background(Color(uiColor: .secondarySystemBackground))
                             .cornerRadius(12)
                         }
@@ -201,13 +222,29 @@ struct AILogView: View {
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
             }
-            .sheet(isPresented: $showPhotoPicker) {
-                PhotoPickerView(selectedImage: $selectedImage)
+            .sheet(isPresented: $showCamera) {
+                CameraView(selectedImage: $selectedImage)
+            }
+            .alert("Permission Required", isPresented: $showPermissionAlert) {
+                Button("Settings") {
+                    openSettings()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(permissionAlertMessage)
             }
             .sheet(item: $parsedNutrition) { wrapper in
                 ConfirmAILogView(nutrition: wrapper.data, date: date) {
                     // Dismiss the parent AILogView after logging
                     dismiss()
+                }
+            }
+            .onChange(of: photoPickerItem) { _, newValue in
+                Task {
+                    if let data = try? await newValue?.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        selectedImage = image
+                    }
                 }
             }
             .onChange(of: inputMode) { _, newMode in
@@ -228,6 +265,37 @@ struct AILogView: View {
                     }
                 }
             }
+        }
+    }
+    
+    private func checkCameraPermission() {
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        
+        switch status {
+        case .authorized:
+            showCamera = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        showCamera = true
+                    } else {
+                        permissionAlertMessage = "Camera access is required to take photos of your food."
+                        showPermissionAlert = true
+                    }
+                }
+            }
+        case .denied, .restricted:
+            permissionAlertMessage = "Camera access was denied. Please enable it in Settings to take photos."
+            showPermissionAlert = true
+        @unknown default:
+            break
+        }
+    }
+    
+    private func openSettings() {
+        if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(settingsUrl)
         }
     }
     
@@ -278,6 +346,45 @@ struct AILogView: View {
                     isLoading = false
                 }
             }
+        }
+    }
+}
+
+// MARK: - Camera View (UIKit Wrapper)
+
+struct CameraView: UIViewControllerRepresentable {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selectedImage: UIImage?
+    
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.delegate = context.coordinator
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: CameraView
+        
+        init(_ parent: CameraView) {
+            self.parent = parent
+        }
+        
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                parent.selectedImage = image
+            }
+            parent.dismiss()
+        }
+        
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
         }
     }
 }
