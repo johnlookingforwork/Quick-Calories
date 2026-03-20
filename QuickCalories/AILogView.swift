@@ -26,7 +26,7 @@ struct AILogView: View {
     @Environment(\.modelContext) private var modelContext
     
     let date: Date
-    @State private var inputMode: AIInputMode = .text
+    @State private var inputMode: AIInputMode? = nil // nil means showing selection
     @State private var foodInput = ""
     @State private var selectedImage: UIImage?
     @State private var photoContext = ""
@@ -54,153 +54,174 @@ struct AILogView: View {
                 }
                 .padding(.top)
                 
-                // Mode picker
-                Picker("Input Mode", selection: $inputMode) {
-                    ForEach(AIInputMode.allCases, id: \.self) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                
-                // Input area based on mode
-                VStack(spacing: 12) {
-                    if inputMode == .text {
-                        // Text input
-                        TextEditor(text: $foodInput)
-                            .frame(height: 120)
-                            .padding(8)
-                            .background(Color(uiColor: .secondarySystemBackground))
-                            .cornerRadius(12)
-                            .focused($isTextFieldFocused)
-                            .overlay(
-                                Group {
-                                    if foodInput.isEmpty {
-                                        Text("Describe your meal...\ne.g., 3 scrambled eggs and sourdough toast")
-                                            .foregroundStyle(.secondary)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 16)
-                                            .allowsHitTesting(false)
-                                    }
-                                },
-                                alignment: .topLeading
-                            )
-                    } else {
-                        // Photo input
-                        if let image = selectedImage {
-                            VStack(spacing: 12) {
-                                // Photo preview
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxHeight: 200)
-                                    .cornerRadius(12)
+                // Show selection cards or input form
+                if inputMode == nil {
+                    // Initial selection view - show both options as cards
+                    VStack(spacing: 16) {
+                        Text("How would you like to log?")
+                            .font(.headline)
+                            .padding(.top)
+                        
+                        // Text option card
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                inputMode = .text
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                isTextFieldFocused = true
+                            }
+                        } label: {
+                            HStack(spacing: 16) {
+                                Image(systemName: "text.bubble.fill")
+                                    .font(.system(size: 40))
+                                    .foregroundStyle(.blue.gradient)
+                                    .frame(width: 60)
                                 
-                                // Optional context input
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("Add context (optional)")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                    Text("Describe with Text")
+                                        .font(.headline)
+                                        .foregroundStyle(.primary)
                                     
-                                    TextField("e.g., from restaurant, homemade", text: $photoContext)
-                                        .textFieldStyle(.roundedBorder)
-                                        .focused($isPhotoContextFocused)
+                                    Text("Type what you ate")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
                                 }
                                 
-                                // Change photo button
-                                Button {
-                                    showCamera = true
-                                } label: {
-                                    Label("Change Photo", systemImage: "photo")
+                                Spacer()
+                                
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color(uiColor: .secondarySystemBackground))
+                            .cornerRadius(16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .strokeBorder(Color.blue.opacity(0.3), lineWidth: 2)
+                            )
+                        }
+                        
+                        // Photo option card
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                inputMode = .photo
+                            }
+                        } label: {
+                            HStack(spacing: 16) {
+                                ZStack {
+                                    Image(systemName: "camera.fill")
+                                        .font(.system(size: 36))
+                                        .foregroundStyle(.purple.gradient)
+                                    
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 16))
+                                        .foregroundStyle(.yellow)
+                                        .offset(x: 20, y: -15)
+                                }
+                                .frame(width: 60)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Snap a Picture")
+                                        .font(.headline)
+                                        .foregroundStyle(.primary)
+                                    
+                                    Text("Take a photo of your food")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color(uiColor: .secondarySystemBackground))
+                            .cornerRadius(16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .strokeBorder(Color.purple.opacity(0.3), lineWidth: 2)
+                            )
+                        }
+                        
+                        Text("Both powered by AI")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 8)
+                    }
+                    .padding(.horizontal)
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                } else {
+                    // Selected mode view
+                    VStack(spacing: 16) {
+                        // Mode indicator with back button
+                        HStack {
+                            Button {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    inputMode = nil
+                                    errorMessage = nil
+                                    foodInput = ""
+                                    selectedImage = nil
+                                    photoContext = ""
+                                }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "chevron.left")
+                                        .font(.caption)
+                                    Text("Change method")
                                         .font(.subheadline)
                                 }
-                                .buttonStyle(.bordered)
+                                .foregroundStyle(.blue)
                             }
-                        } else {
-                            // Photo picker prompt
-                            VStack(spacing: 16) {
-                                Image(systemName: "camera.fill")
-                                    .font(.system(size: 48))
-                                    .foregroundStyle(.secondary)
-                                
-                                Text("Take a photo of your food")
-                                    .font(.headline)
-                                
-                                VStack(spacing: 12) {
-                                    Button {
-                                        checkCameraPermission()
-                                    } label: {
-                                        HStack {
-                                            Image(systemName: "camera.fill")
-                                            Text("Take Photo")
-                                        }
-                                        .font(.headline)
-                                        .foregroundColor(.white)
-                                        .frame(maxWidth: .infinity)
-                                        .padding()
-                                        .background(Color.accentColor)
-                                        .cornerRadius(12)
-                                    }
-                                    
-                                    PhotosPicker(selection: $photoPickerItem, matching: .images) {
-                                        HStack {
-                                            Image(systemName: "photo.on.rectangle")
-                                            Text("Choose from Library")
-                                        }
-                                        .font(.headline)
-                                        .foregroundColor(.accentColor)
-                                        .frame(maxWidth: .infinity)
-                                        .padding()
-                                        .background(Color.accentColor.opacity(0.1))
-                                        .cornerRadius(12)
-                                    }
-                                }
-                                .padding(.horizontal)
+                            
+                            Spacer()
+                            
+                            HStack(spacing: 6) {
+                                Image(systemName: inputMode == .text ? "text.bubble.fill" : "camera.fill")
+                                    .foregroundStyle(inputMode == .text ? .blue : .purple)
+                                Text(inputMode == .text ? "Text Input" : "Photo Input")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 20)
-                            .background(Color(uiColor: .secondarySystemBackground))
-                            .cornerRadius(12)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color(uiColor: .tertiarySystemBackground))
+                            .cornerRadius(8)
                         }
+                        .padding(.horizontal)
+                        
+                        // Input area based on mode
+                        inputAreaView
                     }
-                    
-                    if let error = errorMessage {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(Color.red)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    
-                    if isLoading {
-                        VStack(spacing: 12) {
-                            ProgressView()
-                            Text(inputMode == .photo ? "Analyzing photo..." : "Processing...")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding()
-                    }
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
                 }
-                .padding(.horizontal)
                 
                 Spacer()
                 
-                // Log button
-                Button(action: logFood) {
-                    HStack {
-                        Image(systemName: "sparkles")
-                        Text("Log with AI")
+                // Log button (only show when mode is selected)
+                if inputMode != nil {
+                    Button(action: logFood) {
+                        HStack {
+                            Image(systemName: "sparkles")
+                            Text("Log with AI")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(canLog ? Color.accentColor : Color.gray)
+                        .cornerRadius(12)
                     }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(canLog ? Color.accentColor : Color.gray)
-                    .cornerRadius(12)
+                    .disabled(!canLog)
+                    .padding(.horizontal)
+                    .padding(.bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                .disabled(!canLog)
-                .padding(.horizontal)
-                .padding(.bottom)
             }
             .navigationTitle("Log with AI")
             .navigationBarTitleDisplayMode(.inline)
@@ -247,25 +268,130 @@ struct AILogView: View {
                     }
                 }
             }
-            .onChange(of: inputMode) { _, newMode in
-                // Clear error when switching modes
-                errorMessage = nil
-                
-                // Focus appropriate field
-                if newMode == .text {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        isTextFieldFocused = true
+        }
+    }
+    
+    // Separate view for input area to reduce complexity
+    @ViewBuilder
+    private var inputAreaView: some View {
+        VStack(spacing: 12) {
+            if inputMode == .text {
+                // Text input
+                TextEditor(text: $foodInput)
+                    .frame(height: 120)
+                    .padding(8)
+                    .background(Color(uiColor: .secondarySystemBackground))
+                    .cornerRadius(12)
+                    .focused($isTextFieldFocused)
+                    .overlay(
+                        Group {
+                            if foodInput.isEmpty {
+                                Text("Describe your meal...\ne.g., 3 scrambled eggs and sourdough toast")
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 16)
+                                    .allowsHitTesting(false)
+                            }
+                        },
+                        alignment: .topLeading
+                    )
+            } else if inputMode == .photo {
+                // Photo input
+                if let image = selectedImage {
+                    VStack(spacing: 12) {
+                        // Photo preview
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxHeight: 200)
+                            .cornerRadius(12)
+                        
+                        // Optional context input
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Add context (optional)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            
+                            TextField("e.g., from restaurant, homemade", text: $photoContext)
+                                .textFieldStyle(.roundedBorder)
+                                .focused($isPhotoContextFocused)
+                        }
+                        
+                        // Change photo button
+                        Button {
+                            showCamera = true
+                        } label: {
+                            Label("Change Photo", systemImage: "photo")
+                                .font(.subheadline)
+                        }
+                        .buttonStyle(.bordered)
                     }
+                } else {
+                    // Photo picker prompt
+                    VStack(spacing: 16) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.purple.gradient)
+                        
+                        Text("Take a photo of your food")
+                            .font(.headline)
+                        
+                        VStack(spacing: 12) {
+                            Button {
+                                checkCameraPermission()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "camera.fill")
+                                    Text("Take Photo")
+                                }
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.purple)
+                                .cornerRadius(12)
+                            }
+                            
+                            PhotosPicker(selection: $photoPickerItem, matching: .images) {
+                                HStack {
+                                    Image(systemName: "photo.on.rectangle")
+                                    Text("Choose from Library")
+                                }
+                                .font(.headline)
+                                .foregroundColor(.purple)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.purple.opacity(0.1))
+                                .cornerRadius(12)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .background(Color(uiColor: .secondarySystemBackground))
+                    .cornerRadius(12)
                 }
             }
-            .onAppear {
-                if inputMode == .text {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        isTextFieldFocused = true
-                    }
+            
+            if let error = errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(Color.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            
+            if isLoading {
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text(inputMode == .photo ? "Analyzing photo..." : "Processing...")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
+                .padding()
             }
         }
+        .padding(.horizontal)
     }
     
     private func checkCameraPermission() {
@@ -300,11 +426,15 @@ struct AILogView: View {
     }
     
     private var canLog: Bool {
+        guard let mode = inputMode else {
+            return false
+        }
+        
         if isLoading {
             return false
         }
         
-        switch inputMode {
+        switch mode {
         case .text:
             return !foodInput.isEmpty
         case .photo:
@@ -313,6 +443,8 @@ struct AILogView: View {
     }
     
     private func logFood() {
+        guard let mode = inputMode else { return }
+        
         isLoading = true
         errorMessage = nil
         
@@ -320,7 +452,7 @@ struct AILogView: View {
             do {
                 let nutrition: NutritionResponse
                 
-                switch inputMode {
+                switch mode {
                 case .text:
                     guard !foodInput.isEmpty else { return }
                     nutrition = try await OpenAIService.shared.parseFood(foodInput)

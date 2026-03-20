@@ -32,13 +32,16 @@ struct OnboardingView: View {
                     )
                     .tag(1)
                     
+                    PhotoLoggingPage()
+                        .tag(2)
+                    
                     FeaturePage(
                         icon: "chart.bar.fill",
                         title: "Track Your Progress",
                         description: "Monitor calories, protein, carbs, and fat with beautiful visualizations",
                         color: .green
                     )
-                    .tag(2)
+                    .tag(3)
                     
                     FeaturePage(
                         icon: "target",
@@ -46,17 +49,17 @@ struct OnboardingView: View {
                         description: "Set personalized targets and watch your daily progress",
                         color: .orange
                     )
-                    .tag(3)
+                    .tag(4)
                     
                     PrivacyPage()
-                        .tag(4)
+                        .tag(5)
                     
                     GetStartedPage {
                         withAnimation {
                             showTargetSetup = true
                         }
                     }
-                    .tag(5)
+                    .tag(6)
                 }
                 .tabViewStyle(.page)
                 .indexViewStyle(.page(backgroundDisplayMode: .always))
@@ -273,6 +276,116 @@ struct GetStartedPage: View {
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 40)
+        }
+        .padding()
+    }
+}
+
+struct PhotoLoggingPage: View {
+    var body: some View {
+        VStack(spacing: 32) {
+            Spacer()
+            
+            VStack(spacing: 24) {
+                // Camera icon with sparkles
+                ZStack {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 70))
+                        .foregroundStyle(.purple.gradient)
+                    
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 24))
+                        .foregroundStyle(.yellow)
+                        .offset(x: 35, y: -30)
+                }
+                
+                VStack(spacing: 12) {
+                    Text("Snap a Picture to Log")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("Take a photo of your food and AI will instantly identify it and calculate the nutrition")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+                
+                // Visual example cards
+                VStack(spacing: 16) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "camera.fill")
+                            .font(.title3)
+                            .foregroundStyle(.purple)
+                            .frame(width: 40)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Snap a photo")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Text("Take a picture of your meal")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.purple.opacity(0.1))
+                    .cornerRadius(12)
+                    
+                    HStack(spacing: 12) {
+                        Image(systemName: "sparkles")
+                            .font(.title3)
+                            .foregroundStyle(.purple)
+                            .frame(width: 40)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("AI analyzes it")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Text("Instant nutrition breakdown")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.purple.opacity(0.1))
+                    .cornerRadius(12)
+                    
+                    HStack(spacing: 12) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(.green)
+                            .frame(width: 40)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Confirm & log")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Text("Review and save to your diary")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(12)
+                }
+                .padding(.horizontal, 32)
+            }
+            
+            Spacer()
+            
+            Text("Swipe to continue")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 40)
         }
         .padding()
     }
