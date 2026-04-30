@@ -14,6 +14,7 @@ struct OnboardingView: View {
     @State private var proteinTarget = 150.0
     @State private var carbsTarget = 200.0
     @State private var fatTarget = 67.0
+    @State private var dietMode: DietMode = .normal
     
     var onComplete: () -> Void
     
@@ -50,16 +51,19 @@ struct OnboardingView: View {
                         color: .orange
                     )
                     .tag(4)
-                    
-                    PrivacyPage()
+
+                    DietModePage(selection: $dietMode)
                         .tag(5)
-                    
+
+                    PrivacyPage()
+                        .tag(6)
+
                     GetStartedPage {
                         withAnimation {
                             showTargetSetup = true
                         }
                     }
-                    .tag(6)
+                    .tag(7)
                 }
                 .tabViewStyle(.page)
                 .indexViewStyle(.page(backgroundDisplayMode: .always))
@@ -78,6 +82,7 @@ struct OnboardingView: View {
     }
     
     private func completeOnboarding() {
+        SettingsManager.shared.dietMode = dietMode
         SettingsManager.shared.hasCompletedOnboarding = true
         onComplete()
     }
@@ -382,6 +387,100 @@ struct PhotoLoggingPage: View {
             
             Spacer()
             
+            Text("Swipe to continue")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 40)
+        }
+        .padding()
+    }
+}
+
+struct DietModePage: View {
+    @Binding var selection: DietMode
+
+    private struct ModeOption {
+        let mode: DietMode
+        let icon: String
+        let color: Color
+        let description: String
+    }
+
+    private let options: [ModeOption] = [
+        ModeOption(mode: .normal, icon: "equal.circle.fill",   color: .blue,   description: "Hit your calorie target, ±10% is fine"),
+        ModeOption(mode: .bulk,   icon: "arrow.up.circle.fill", color: .green,  description: "Eat at least your target to fuel muscle growth"),
+        ModeOption(mode: .cut,    icon: "arrow.down.circle.fill", color: .orange, description: "Stay at or under your target to lose fat"),
+    ]
+
+    var body: some View {
+        VStack(spacing: 32) {
+            Spacer()
+
+            VStack(spacing: 16) {
+                Image(systemName: "dial.medium.fill")
+                    .font(.system(size: 70))
+                    .foregroundStyle(.blue.gradient)
+
+                VStack(spacing: 8) {
+                    Text("Choose Your Goal Mode")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
+
+                    Text("Controls when your calorie circle turns red")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+            }
+
+            VStack(spacing: 12) {
+                ForEach(options, id: \.mode) { option in
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selection = option.mode
+                        }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    } label: {
+                        HStack(spacing: 16) {
+                            Image(systemName: option.icon)
+                                .font(.title2)
+                                .foregroundStyle(option.color)
+                                .frame(width: 36)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(option.mode.rawValue)
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                Text(option.description)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            if selection == option.mode {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(option.color)
+                            }
+                        }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(selection == option.mode ? option.color.opacity(0.12) : Color(uiColor: .secondarySystemBackground))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(selection == option.mode ? option.color : Color.clear, lineWidth: 1.5)
+                        )
+                    }
+                }
+            }
+            .padding(.horizontal, 32)
+
+            Spacer()
+
             Text("Swipe to continue")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)

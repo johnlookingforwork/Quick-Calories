@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var proteinTarget = 150.0
     @State private var carbsTarget = 200.0
     @State private var fatTarget = 67.0
+    @State private var dietMode: DietMode = .normal
     @State private var showTargetSetup = false
     @State private var showRecalculateConfirmation = false
     @State private var showPaywall = false
@@ -82,6 +83,26 @@ struct SettingsView: View {
                 }
             }
             
+            Section {
+                Picker("Mode", selection: $dietMode) {
+                    ForEach(DietMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+            } header: {
+                Text("Diet Mode")
+            } footer: {
+                switch dietMode {
+                case .normal:
+                    Text("Normal: within ±10% of your calorie target is acceptable.")
+                case .bulk:
+                    Text("Bulk: you need to eat at least your calorie target. Red if under by more than 10%.")
+                case .cut:
+                    Text("Cut: stay at or under your calorie target. Red if over by more than 10%.")
+                }
+            }
+
             // Profile section (if exists)
             if settings.hasProfileData {
                 Section("Your Profile") {
@@ -269,6 +290,9 @@ struct SettingsView: View {
         .onChange(of: fatTarget) { _, newValue in
             SettingsManager.shared.fatTarget = newValue
         }
+        .onChange(of: dietMode) { _, newValue in
+            SettingsManager.shared.dietMode = newValue
+        }
     }
     
     private func loadSettings() {
@@ -277,6 +301,7 @@ struct SettingsView: View {
         proteinTarget = settings.proteinTarget
         carbsTarget = settings.carbsTarget
         fatTarget = settings.fatTarget
+        dietMode = settings.dietMode
     }
     
     private func recalculateTargets() {

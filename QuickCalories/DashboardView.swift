@@ -105,7 +105,8 @@ struct DashboardView: View {
                             protein: SettingsManager.shared.proteinTarget,
                             carbs: SettingsManager.shared.carbsTarget,
                             fat: SettingsManager.shared.fatTarget
-                        )
+                        ),
+                        dietMode: SettingsManager.shared.dietMode
                     )
                     .padding(.horizontal)
                     .contentShape(Rectangle())
@@ -408,33 +409,50 @@ struct DailyProgressView: View {
     let todayTotals: (calories: Int, protein: Double, carbs: Double, fat: Double)
     let workoutCalories: Int
     let targets: (calories: Int, protein: Double, carbs: Double, fat: Double)
-    
+    let dietMode: DietMode
+
+    @State private var showingCaloriesEaten = false
+
     private var caloriesRemaining: Int {
         targets.calories - todayTotals.calories + workoutCalories
     }
-    
+
     private var calorieProgress: Double {
         Double(todayTotals.calories - workoutCalories) / Double(targets.calories)
     }
-    
-    // 10% grace period - only show red if over by more than 10%
+
     private var isOverBudget: Bool {
-        caloriesRemaining < 0 && abs(caloriesRemaining) > Int(Double(targets.calories) * 0.1)
+        let tolerance = Int(Double(targets.calories) * 0.1)
+        switch dietMode {
+        case .normal, .cut:
+            return caloriesRemaining < -tolerance
+        case .bulk:
+            return caloriesRemaining > tolerance
+        }
     }
-    
+
     var body: some View {
         VStack(spacing: 20) {
             VStack(spacing: 8) {
                 ZStack {
                     // Center content
                     VStack(spacing: 4) {
-                        Text("\(caloriesRemaining)")
+                        Text(showingCaloriesEaten ? "\(todayTotals.calories)" : "\(caloriesRemaining)")
                             .font(.system(size: 56, weight: .bold, design: .rounded))
                             .foregroundStyle(isOverBudget ? Color.red : Color.primary)
-                        
-                        Text("calories remaining")
+                            .contentTransition(.numericText())
+
+                        Text(showingCaloriesEaten ? "calories eaten" : "calories remaining")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            .contentTransition(.opacity)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            showingCaloriesEaten.toggle()
+                        }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     }
                 }
                 

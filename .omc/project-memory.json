@@ -1,0 +1,101 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1776873989498,
+  "projectRoot": "/Users/jaoewn/Projects/QuickCalories",
+  "techStack": {
+    "languages": [],
+    "frameworks": [],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "QuickCalories": {
+      "path": "QuickCalories",
+      "purpose": null,
+      "fileCount": 41,
+      "lastAccessed": 1776873989433,
+      "keyFiles": [
+        "AILogView.swift",
+        "APIKeyConfigView.swift",
+        "CalorieCalculator.swift",
+        "CalorieTargetSetupView.swift",
+        "Configuration.swift"
+      ]
+    },
+    "QuickCalories.xcodeproj": {
+      "path": "QuickCalories.xcodeproj",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1776873989434,
+      "keyFiles": [
+        "ImageMetadataExtractor.swift",
+        "project.pbxproj"
+      ]
+    },
+    "ci_scripts": {
+      "path": "ci_scripts",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1776873989436,
+      "keyFiles": [
+        "ci_post_clone.sh"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "QuickCalories/SettingsView.swift",
+      "accessCount": 5,
+      "lastAccessed": 1776875961151,
+      "type": "file"
+    },
+    {
+      "path": "QuickCalories/OnboardingView.swift",
+      "accessCount": 5,
+      "lastAccessed": 1776876030851,
+      "type": "file"
+    },
+    {
+      "path": "QuickCalories/SettingsManager.swift",
+      "accessCount": 4,
+      "lastAccessed": 1776875931585,
+      "type": "file"
+    },
+    {
+      "path": "QuickCalories/DashboardView.swift",
+      "accessCount": 3,
+      "lastAccessed": 1776875991278,
+      "type": "file"
+    },
+    {
+      "path": "QuickCalories",
+      "accessCount": 1,
+      "lastAccessed": 1776874439062,
+      "type": "directory"
+    }
+  ],
+  "userDirectives": []
+}

@@ -8,6 +8,12 @@
 import Foundation
 import Observation
 
+enum DietMode: String, CaseIterable {
+    case normal = "Normal"
+    case bulk   = "Bulk"
+    case cut    = "Cut"
+}
+
 @Observable
 final class SettingsManager {
     static let shared = SettingsManager()
@@ -106,6 +112,12 @@ final class SettingsManager {
             UserDefaults.standard.set(useMetricSystem, forKey: "useMetricSystem")
         }
     }
+
+    var dietMode: DietMode = .normal {
+        didSet {
+            UserDefaults.standard.set(dietMode.rawValue, forKey: "dietMode")
+        }
+    }
     
     // Free tier tracking
     var dailyAIRequestCount: Int = 0 {
@@ -156,6 +168,8 @@ final class SettingsManager {
         self.goalType = UserDefaults.standard.string(forKey: "goalType") ?? Goal.maintain.rawValue
         self.macroSplitType = UserDefaults.standard.string(forKey: "macroSplitType") ?? MacroSplit.balanced.rawValue
         self.useMetricSystem = UserDefaults.standard.bool(forKey: "useMetricSystem")
+        let savedDietMode = UserDefaults.standard.string(forKey: "dietMode") ?? ""
+        self.dietMode = DietMode(rawValue: savedDietMode) ?? .normal
         
         // Migration: If user has custom targets but hasn't "completed onboarding",
         // mark them as having completed it to skip onboarding for existing users
