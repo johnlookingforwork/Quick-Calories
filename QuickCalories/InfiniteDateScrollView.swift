@@ -12,7 +12,8 @@ struct InfiniteDateScrollView: View {
     @Query private var allEntries: [FoodEntry]
     @Query private var allWorkouts: [WorkoutEntry]
     @Binding var selectedDate: Date
-    
+
+    var settings = SettingsManager.shared
     private let calendar = Calendar.current
     
     // Generate dates from 90 days ago to 30 days in the future
@@ -41,8 +42,13 @@ struct InfiniteDateScrollView: View {
     
     private func targetMet(_ date: Date) -> Bool {
         let netCals = netCaloriesForDate(date)
-        let target = SettingsManager.shared.dailyCalorieTarget
-        return netCals >= Int(Double(target) * 0.9) && netCals <= Int(Double(target) * 1.1)
+        let target = settings.dailyCalorieTarget
+        let pct = Double(netCals) / Double(target)
+        switch settings.dietMode {
+        case .normal: return pct >= 0.9 && pct <= 1.1
+        case .bulk:   return pct >= 0.9
+        case .cut:    return pct <= 1.1
+        }
     }
     
     var body: some View {
@@ -54,7 +60,8 @@ struct InfiniteDateScrollView: View {
                             date: date,
                             isSelected: calendar.isDate(date, inSameDayAs: selectedDate),
                             calories: netCaloriesForDate(date),
-                            target: SettingsManager.shared.dailyCalorieTarget,
+                            target: settings.dailyCalorieTarget,
+                            dietMode: settings.dietMode,
                             metGoal: targetMet(date),
                             hasData: !entriesForDate(date).isEmpty || !workoutsForDate(date).isEmpty
                         )
@@ -91,32 +98,36 @@ struct InfiniteDateCell: View {
     let isSelected: Bool
     let calories: Int
     let target: Int
+    let dietMode: DietMode
     let metGoal: Bool
     let hasData: Bool
-    
+
     private let calendar = Calendar.current
-    
+
     private var isToday: Bool {
         calendar.isDateInToday(date)
     }
-    
+
     private var isFuture: Bool {
         date > Date()
     }
-    
+
     private var statusColor: Color {
-        if !hasData {
-            return Color.gray.opacity(0.3)  // Empty/no data
-        }
-        
-        let percentage = Double(calories) / Double(target)
-        
-        if percentage >= 0.9 && percentage <= 1.1 {
-            return Color.green  // Hit goal (90-110%)
-        } else if percentage >= 0.75 && percentage < 0.9 {
-            return Color.orange  // Almost there (75-90%)
-        } else {
-            return Color.red  // Missed goal
+        if !hasData { return Color.gray.opacity(0.3) }
+        let pct = Double(calories) / Double(target)
+        switch dietMode {
+        case .normal:
+            if pct >= 0.9 && pct <= 1.1 { return .green }
+            if pct >= 0.75              { return .orange }
+            return .red
+        case .bulk:
+            if pct >= 0.9  { return .green }
+            if pct >= 0.75 { return .orange }
+            return .red
+        case .cut:
+            if pct <= 1.1  { return .green }
+            if pct <= 1.25 { return .orange }
+            return .red
         }
     }
     

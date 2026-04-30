@@ -22,7 +22,8 @@ struct DashboardView: View {
     @State private var selectedEntry: FoodEntry?
     @State private var selectedWorkout: WorkoutEntry?
     @State private var navigateToSettings = false
-    
+
+    private var settings = SettingsManager.shared
     private let calendar = Calendar.current
     
     private var isViewingToday: Bool {
@@ -101,12 +102,12 @@ struct DashboardView: View {
                         todayTotals: displayDateTotals,
                         workoutCalories: displayDateWorkoutCalories,
                         targets: (
-                            calories: SettingsManager.shared.dailyCalorieTarget,
-                            protein: SettingsManager.shared.proteinTarget,
-                            carbs: SettingsManager.shared.carbsTarget,
-                            fat: SettingsManager.shared.fatTarget
+                            calories: settings.dailyCalorieTarget,
+                            protein: settings.proteinTarget,
+                            carbs: settings.carbsTarget,
+                            fat: settings.fatTarget
                         ),
-                        dietMode: SettingsManager.shared.dietMode
+                        dietMode: settings.dietMode
                     )
                     .padding(.horizontal)
                     .contentShape(Rectangle())
