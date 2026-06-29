@@ -68,20 +68,20 @@
   "hotPaths": [
     {
       "path": "QuickCalories/DashboardView.swift",
-      "accessCount": 12,
-      "lastAccessed": 1782700166315,
+      "accessCount": 14,
+      "lastAccessed": 1782700714208,
+      "type": "file"
+    },
+    {
+      "path": "QuickCalories/SavedFoodsView.swift",
+      "accessCount": 9,
+      "lastAccessed": 1782700637968,
       "type": "file"
     },
     {
       "path": "QuickCalories/InfiniteDateScrollView.swift",
       "accessCount": 7,
       "lastAccessed": 1777563435402,
-      "type": "file"
-    },
-    {
-      "path": "QuickCalories/SavedFoodsView.swift",
-      "accessCount": 7,
-      "lastAccessed": 1782700165690,
       "type": "file"
     },
     {

@@ -780,6 +780,13 @@ struct RecentFoodsView: View {
                                 .onTapGesture {
                                     foodToLog = food
                                 }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        deleteEntry(food)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
                         }
                     }
                 }
@@ -805,6 +812,13 @@ struct RecentFoodsView: View {
             .sheet(item: $foodToLog) { food in
                 LogRecentFoodView(food: food, date: date)
             }
+        }
+    }
+
+    private func deleteEntry(_ entry: FoodEntry) {
+        withAnimation {
+            modelContext.delete(entry)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
     }
 }

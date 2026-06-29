@@ -123,11 +123,16 @@ struct SavedFoodRow: View {
                 Text(food.foodName)
                     .font(.body)
                     .fontWeight(.medium)
-                
-                Text("\(food.servingSize, specifier: "%.1f") \(food.unit) • \(food.calories) cal")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                
+
+                HStack(spacing: 4) {
+                    Image(systemName: "flame.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                    Text("\(food.calories) cal • \(food.servingSize, specifier: "%.1f") \(food.unit)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 HStack(spacing: 12) {
                     HStack(spacing: 3) {
                         Image(systemName: "circle.fill")
@@ -155,10 +160,9 @@ struct SavedFoodRow: View {
                     }
                 }
             }
-            
+
             Spacer()
-            
-            // Visual indicator that this is tappable to log
+
             VStack {
                 Image(systemName: "plus.circle.fill")
                     .font(.title2)
