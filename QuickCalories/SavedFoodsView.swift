@@ -129,17 +129,30 @@ struct SavedFoodRow: View {
                     .foregroundStyle(.secondary)
                 
                 HStack(spacing: 12) {
-                    Text("P: \(Int(food.protein))g")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    
-                    Text("C: \(Int(food.carbs))g")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    
-                    Text("F: \(Int(food.fat))g")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 3) {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 6))
+                            .foregroundStyle(.red)
+                        Text("\(Int(food.protein))g")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 3) {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 6))
+                            .foregroundStyle(.blue)
+                        Text("\(Int(food.carbs))g")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 3) {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 6))
+                            .foregroundStyle(.yellow)
+                        Text("\(Int(food.fat))g")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             
@@ -186,16 +199,27 @@ struct AddSavedFoodView: View {
             Form {
                 Section("Food Details") {
                     TextField("Food Name", text: $foodName)
-                    
+
                     HStack {
                         TextField("Serving Size", text: $servingSize)
                             .keyboardType(.decimalPad)
-                        
+
                         TextField("Unit", text: $unit)
                             .frame(width: 80)
                     }
+
+                    Button {
+                        normalizeToHundred()
+                    } label: {
+                        HStack {
+                            Image(systemName: "wand.and.stars")
+                            Text("Normalize to 100 \(unit.isEmpty ? "units" : unit)")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .disabled(Double(servingSize) == nil || Double(servingSize) == 100)
                 }
-                
+
                 Section("Nutrition (per serving)") {
                     HStack {
                         Image(systemName: "flame.fill")
@@ -211,7 +235,7 @@ struct AddSavedFoodView: View {
                         Text("cal")
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     HStack {
                         Image(systemName: "circle.fill")
                             .foregroundStyle(.red)
@@ -226,7 +250,7 @@ struct AddSavedFoodView: View {
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     HStack {
                         Image(systemName: "circle.fill")
                             .foregroundStyle(.blue)
@@ -241,7 +265,7 @@ struct AddSavedFoodView: View {
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     HStack {
                         Image(systemName: "circle.fill")
                             .foregroundStyle(.yellow)
@@ -278,6 +302,24 @@ struct AddSavedFoodView: View {
         }
     }
     
+    private func normalizeToHundred() {
+        guard let size = Double(servingSize), size > 0 else { return }
+        let factor = 100.0 / size
+        servingSize = "100"
+        if let cal = Double(calories) {
+            calories = String(Int((cal * factor).rounded()))
+        }
+        if let prot = Double(protein) {
+            protein = String(format: "%.1f", prot * factor)
+        }
+        if let carb = Double(carbs) {
+            carbs = String(format: "%.1f", carb * factor)
+        }
+        if let f = Double(fat) {
+            fat = String(format: "%.1f", f * factor)
+        }
+    }
+
     private func saveFood() {
         guard let servingSizeValue = Double(servingSize),
               let caloriesValue = Int(calories),
@@ -286,7 +328,7 @@ struct AddSavedFoodView: View {
               let fatValue = Double(fat) else {
             return
         }
-        
+
         let food = SavedFood(
             foodName: foodName,
             servingSize: servingSizeValue,
@@ -296,7 +338,7 @@ struct AddSavedFoodView: View {
             carbs: carbsValue,
             fat: fatValue
         )
-        
+
         modelContext.insert(food)
         dismiss()
     }
@@ -340,16 +382,27 @@ struct EditSavedFoodView: View {
             Form {
                 Section("Food Details") {
                     TextField("Food Name", text: $foodName)
-                    
+
                     HStack {
                         TextField("Serving Size", text: $servingSize)
                             .keyboardType(.decimalPad)
-                        
+
                         TextField("Unit", text: $unit)
                             .frame(width: 80)
                     }
+
+                    Button {
+                        normalizeToHundred()
+                    } label: {
+                        HStack {
+                            Image(systemName: "wand.and.stars")
+                            Text("Normalize to 100 \(unit.isEmpty ? "units" : unit)")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .disabled(Double(servingSize) == nil || Double(servingSize) == 100)
                 }
-                
+
                 Section("Nutrition (per serving)") {
                     HStack {
                         Image(systemName: "flame.fill")
@@ -365,7 +418,7 @@ struct EditSavedFoodView: View {
                         Text("cal")
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     HStack {
                         Image(systemName: "circle.fill")
                             .foregroundStyle(.red)
@@ -380,7 +433,7 @@ struct EditSavedFoodView: View {
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     HStack {
                         Image(systemName: "circle.fill")
                             .foregroundStyle(.blue)
@@ -395,7 +448,7 @@ struct EditSavedFoodView: View {
                         Text("g")
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     HStack {
                         Image(systemName: "circle.fill")
                             .foregroundStyle(.yellow)
@@ -432,6 +485,24 @@ struct EditSavedFoodView: View {
         }
     }
     
+    private func normalizeToHundred() {
+        guard let size = Double(servingSize), size > 0 else { return }
+        let factor = 100.0 / size
+        servingSize = "100"
+        if let cal = Double(calories) {
+            calories = String(Int((cal * factor).rounded()))
+        }
+        if let prot = Double(protein) {
+            protein = String(format: "%.1f", prot * factor)
+        }
+        if let carb = Double(carbs) {
+            carbs = String(format: "%.1f", carb * factor)
+        }
+        if let f = Double(fat) {
+            fat = String(format: "%.1f", f * factor)
+        }
+    }
+
     private func saveChanges() {
         guard let servingSizeValue = Double(servingSize),
               let caloriesValue = Int(calories),
@@ -440,7 +511,7 @@ struct EditSavedFoodView: View {
               let fatValue = Double(fat) else {
             return
         }
-        
+
         food.foodName = foodName
         food.servingSize = servingSizeValue
         food.unit = unit
@@ -448,7 +519,7 @@ struct EditSavedFoodView: View {
         food.protein = proteinValue
         food.carbs = carbsValue
         food.fat = fatValue
-        
+
         dismiss()
     }
 }

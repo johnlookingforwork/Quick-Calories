@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1776873989498,
+  "lastScanned": 1782699557899,
   "projectRoot": "/Users/jaoewn/Projects/QuickCalories",
   "techStack": {
     "languages": [],
@@ -36,7 +36,7 @@
       "path": "QuickCalories",
       "purpose": null,
       "fileCount": 41,
-      "lastAccessed": 1776873989433,
+      "lastAccessed": 1782699557832,
       "keyFiles": [
         "AILogView.swift",
         "APIKeyConfigView.swift",
@@ -49,7 +49,7 @@
       "path": "QuickCalories.xcodeproj",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1776873989434,
+      "lastAccessed": 1782699557833,
       "keyFiles": [
         "ImageMetadataExtractor.swift",
         "project.pbxproj"
@@ -59,7 +59,7 @@
       "path": "ci_scripts",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1776873989436,
+      "lastAccessed": 1782699557833,
       "keyFiles": [
         "ci_post_clone.sh"
       ]
@@ -67,15 +67,21 @@
   },
   "hotPaths": [
     {
+      "path": "QuickCalories/DashboardView.swift",
+      "accessCount": 12,
+      "lastAccessed": 1782700166315,
+      "type": "file"
+    },
+    {
       "path": "QuickCalories/InfiniteDateScrollView.swift",
       "accessCount": 7,
       "lastAccessed": 1777563435402,
       "type": "file"
     },
     {
-      "path": "QuickCalories/DashboardView.swift",
-      "accessCount": 6,
-      "lastAccessed": 1777562666576,
+      "path": "QuickCalories/SavedFoodsView.swift",
+      "accessCount": 7,
+      "lastAccessed": 1782700165690,
       "type": "file"
     },
     {
@@ -101,6 +107,30 @@
       "accessCount": 1,
       "lastAccessed": 1776874439062,
       "type": "directory"
+    },
+    {
+      "path": "QuickCalories/ContentView.swift",
+      "accessCount": 1,
+      "lastAccessed": 1782699835346,
+      "type": "file"
+    },
+    {
+      "path": "QuickCalories/ManualAddView.swift",
+      "accessCount": 1,
+      "lastAccessed": 1782699844717,
+      "type": "file"
+    },
+    {
+      "path": "QuickCalories/Item.swift",
+      "accessCount": 1,
+      "lastAccessed": 1782699849409,
+      "type": "file"
+    },
+    {
+      "path": "QuickCalories/EditEntryView.swift",
+      "accessCount": 1,
+      "lastAccessed": 1782699854560,
+      "type": "file"
     }
   ],
   "userDirectives": []

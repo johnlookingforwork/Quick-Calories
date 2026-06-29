@@ -18,6 +18,7 @@ struct DashboardView: View {
     @State private var showManualAdd = false
     @State private var showSavedFoods = false
     @State private var showWorkoutLog = false
+    @State private var showRecentFoods = false
     @State private var showDatePicker = false
     @State private var selectedEntry: FoodEntry?
     @State private var selectedWorkout: WorkoutEntry?
@@ -274,6 +275,9 @@ struct DashboardView: View {
             .sheet(isPresented: $showManualAdd) {
                 ManualAddView(date: selectedDate)
             }
+            .sheet(isPresented: $showRecentFoods) {
+                RecentFoodsView(date: selectedDate)
+            }
             .sheet(isPresented: $showSavedFoods) {
                 NavigationStack {
                     SavedFoodsView(logDate: selectedDate)
@@ -303,6 +307,12 @@ struct DashboardView: View {
                         Label("Manual Add", systemImage: "plus.circle")
                     }
                     
+                    Button {
+                        showRecentFoods = true
+                    } label: {
+                        Label("Recently Added", systemImage: "clock.arrow.circlepath")
+                    }
+
                     Button {
                         showSavedFoods = true
                     } label: {
@@ -727,6 +737,294 @@ struct WorkoutEntryRow: View {
         .background(Color.green.opacity(0.1))
         .cornerRadius(12)
         .padding(.horizontal)
+    }
+}
+
+struct RecentFoodsView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @Query(sort: \FoodEntry.timestamp, order: .reverse) private var allEntries: [FoodEntry]
+
+    let date: Date
+    @State private var foodToLog: FoodEntry?
+
+    private var recentUniqueFoods: [FoodEntry] {
+        var seen = Set<String>()
+        var result: [FoodEntry] = []
+        for entry in allEntries {
+            let key = entry.foodName.lowercased()
+            if !seen.contains(key) {
+                seen.insert(key)
+                result.append(entry)
+                if result.count >= 25 { break }
+            }
+        }
+        return result
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if recentUniqueFoods.isEmpty {
+                    ContentUnavailableView {
+                        Label("No Recent Foods", systemImage: "clock")
+                    } description: {
+                        Text("Foods you've logged will appear here for quick re-logging.")
+                            .multilineTextAlignment(.center)
+                    }
+                } else {
+                    List {
+                        ForEach(recentUniqueFoods) { food in
+                            RecentFoodRow(food: food)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    foodToLog = food
+                                }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Recently Added")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 2) {
+                        Text("Recently Added")
+                            .font(.headline)
+                        if !recentUniqueFoods.isEmpty {
+                            Text("Tap to re-log")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .sheet(item: $foodToLog) { food in
+                LogRecentFoodView(food: food, date: date)
+            }
+        }
+    }
+}
+
+struct RecentFoodRow: View {
+    let food: FoodEntry
+
+    private var perServing: (calories: Int, protein: Double, carbs: Double, fat: Double) {
+        let s = food.servings > 0 ? food.servings : 1.0
+        return (
+            calories: Int((Double(food.calories) / s).rounded()),
+            protein: food.protein / s,
+            carbs: food.carbs / s,
+            fat: food.fat / s
+        )
+    }
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(food.foodName)
+                    .font(.body)
+                    .fontWeight(.medium)
+
+                HStack(spacing: 4) {
+                    Image(systemName: "flame.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                    Text("\(perServing.calories) cal / serving")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 12) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 6))
+                            .foregroundStyle(.red)
+                        Text("\(Int(perServing.protein))g")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 3) {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 6))
+                            .foregroundStyle(.blue)
+                        Text("\(Int(perServing.carbs))g")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 3) {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 6))
+                            .foregroundStyle(.yellow)
+                        Text("\(Int(perServing.fat))g")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Spacer()
+
+            VStack {
+                Image(systemName: "plus.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(Color.accentColor)
+                Text("Tap to log")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct LogRecentFoodView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    let food: FoodEntry
+    let date: Date
+
+    @State private var servings = 1.0
+    @FocusState private var isServingsFocused: Bool
+
+    private var perServing: (calories: Int, protein: Double, carbs: Double, fat: Double) {
+        let s = food.servings > 0 ? food.servings : 1.0
+        return (
+            calories: Int((Double(food.calories) / s).rounded()),
+            protein: food.protein / s,
+            carbs: food.carbs / s,
+            fat: food.fat / s
+        )
+    }
+
+    private var calculatedValues: (calories: Int, protein: Double, carbs: Double, fat: Double) {
+        (
+            calories: Int(Double(perServing.calories) * servings),
+            protein: perServing.protein * servings,
+            carbs: perServing.carbs * servings,
+            fat: perServing.fat * servings
+        )
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Food") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(food.foodName)
+                            .font(.headline)
+                        Text("Last logged: \(food.timestamp.formatted(date: .abbreviated, time: .omitted))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section {
+                    HStack {
+                        Text("How many servings?")
+                        Spacer()
+                        HStack(spacing: 8) {
+                            TextField("1.0", value: $servings, format: .number)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.center)
+                                .frame(width: 60)
+                                .focused($isServingsFocused)
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .background(Color.accentColor.opacity(0.1))
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .strokeBorder(Color.accentColor.opacity(0.3), lineWidth: 1.5)
+                                )
+                            Image(systemName: "pencil.circle.fill")
+                                .foregroundStyle(.secondary)
+                                .imageScale(.medium)
+                        }
+                        .onTapGesture { isServingsFocused = true }
+                    }
+
+                    HStack {
+                        Spacer()
+                        Stepper("Adjust servings", value: $servings, in: 0.1...20, step: 0.5)
+                            .labelsHidden()
+                    }
+                } header: {
+                    Text("Servings")
+                } footer: {
+                    Text("Tap the number to type, or use +/- buttons to adjust")
+                }
+
+                Section {
+                    VStack(spacing: 16) {
+                        HStack {
+                            Image(systemName: "flame.fill")
+                                .foregroundStyle(.orange)
+                            Text("Calories")
+                                .font(.headline)
+                            Spacer()
+                            Text("\(calculatedValues.calories)")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                        }
+                        Divider()
+                        HStack(spacing: 20) {
+                            MacroCircle(name: "Protein", value: calculatedValues.protein, color: .red)
+                            MacroCircle(name: "Carbs", value: calculatedValues.carbs, color: .blue)
+                            MacroCircle(name: "Fat", value: calculatedValues.fat, color: .yellow)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                } header: {
+                    Text("Total Nutrition")
+                }
+            }
+            .navigationTitle("Log Food")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { isServingsFocused = false }
+                }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Log") { logFood() }
+                }
+            }
+        }
+    }
+
+    private func logFood() {
+        let smartTimestamp = adjustTimestampForDateContext(date)
+        let entry = FoodEntry(
+            foodName: food.foodName,
+            calories: calculatedValues.calories,
+            protein: calculatedValues.protein,
+            carbs: calculatedValues.carbs,
+            fat: calculatedValues.fat,
+            servings: servings,
+            timestamp: smartTimestamp
+        )
+        modelContext.insert(entry)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        dismiss()
+    }
+
+    private func adjustTimestampForDateContext(_ date: Date) -> Date {
+        let calendar = Calendar.current
+        let now = Date()
+        if calendar.isDateInToday(date) { return now }
+        if date > now { return calendar.startOfDay(for: date) }
+        var components = calendar.dateComponents([.year, .month, .day], from: date)
+        components.hour = 23
+        components.minute = 59
+        components.second = 59
+        return calendar.date(from: components) ?? date
     }
 }
 
