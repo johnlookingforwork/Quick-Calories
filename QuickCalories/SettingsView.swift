@@ -6,8 +6,13 @@
 //
 
 import SwiftUI
+import SwiftData
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
+    @Query(sort: \FoodEntry.timestamp, order: .reverse) private var foodEntries: [FoodEntry]
+    @Query(sort: \WorkoutEntry.timestamp, order: .reverse) private var workoutEntries: [WorkoutEntry]
+    
     @State private var calorieTarget = 2000
     @State private var proteinTarget = 150.0
     @State private var carbsTarget = 200.0
@@ -209,6 +214,15 @@ struct SettingsView: View {
                 }
             }
             
+            Section("Data Management") {
+                ShareLink(
+                    item: CSVExporter(foodEntries: foodEntries, workoutEntries: workoutEntries),
+                    preview: SharePreview("QuickCalories Export", image: Image(systemName: "tablecells"))
+                ) {
+                    Label("Export Logs to CSV", systemImage: "square.and.arrow.up")
+                }
+            }
+            
             Section("About") {
                 Button {
                     showDataSources = true
@@ -399,5 +413,87 @@ struct APIKeyInfoView: View {
 #Preview {
     NavigationStack {
         SettingsView()
+            .modelContainer(for: [FoodEntry.self, WorkoutEntry.self], inMemory: true)
+    }
+}
+
+// Lazy CSV Transferable Document
+struct CSVExporter: Transferable {
+    let foodEntries: [FoodEntry]
+    let workoutEntries: [WorkoutEntry]
+    
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .commaSeparatedText) { exporter in
+            let csvText = exporter.generateCSV()
+            return Data(csvText.utf8)
+        }
+        .suggestedFileName { _ in
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyyMMdd_HHmmss"
+            let dateStr = formatter.string(from: Date())
+            return "QuickCalories_Export_\(dateStr).csv"
+        }
+    }
+    
+    private func generateCSV() -> String {
+        var csv = "Date,Type,Name,Calories Consumed,Calories Burned,Protein (g),Carbs (g),Fat (g),Servings\n"
+        
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        
+        struct ExportableItem: Comparable {
+            let date: Date
+            let type: String
+            let name: String
+            let caloriesConsumed: Int
+            let caloriesBurned: Int
+            let protein: Double
+            let carbs: Double
+            let fat: Double
+            let servings: Double
+            
+            static func < (lhs: ExportableItem, rhs: ExportableItem) -> Bool {
+                lhs.date < rhs.date
+            }
+        }
+        
+        var items: [ExportableItem] = []
+        for food in foodEntries {
+            items.append(ExportableItem(
+                date: food.timestamp,
+                type: "Food",
+                name: food.foodName,
+                caloriesConsumed: food.calories,
+                caloriesBurned: 0,
+                protein: food.protein,
+                carbs: food.carbs,
+                fat: food.fat,
+                servings: food.servings
+            ))
+        }
+        for workout in workoutEntries {
+            items.append(ExportableItem(
+                date: workout.timestamp,
+                type: "Workout",
+                name: workout.workoutName,
+                caloriesConsumed: 0,
+                caloriesBurned: workout.caloriesBurned,
+                protein: 0,
+                carbs: 0,
+                fat: 0,
+                servings: 0
+            ))
+        }
+        
+        items.sort()
+        
+        for item in items {
+            let dateStr = displayFormatter.string(from: item.date)
+            let escapedName = item.name.replacingOccurrences(of: "\"", with: "\"\"")
+            let row = "\"\(dateStr)\",\"\(item.type)\",\"\(escapedName)\",\(item.caloriesConsumed),\(item.caloriesBurned),\(item.protein),\(item.carbs),\(item.fat),\(item.servings)\n"
+            csv.append(row)
+        }
+        
+        return csv
     }
 }

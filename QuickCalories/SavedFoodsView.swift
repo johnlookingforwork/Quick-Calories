@@ -10,7 +10,11 @@ import SwiftData
 
 struct SavedFoodsView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \SavedFood.createdAt, order: .reverse) private var savedFoods: [SavedFood]
+    @Query(sort: [
+        SortDescriptor(\SavedFood.orderIndex, order: .forward),
+        SortDescriptor(\SavedFood.createdAt, order: .reverse)
+    ]) private var savedFoods: [SavedFood]
+    @Environment(\.editMode) private var editMode
     @State private var showAddFood = false
     @State private var foodToLog: SavedFood?
     @State private var foodToEdit: SavedFood?
@@ -48,7 +52,9 @@ struct SavedFoodsView: View {
                         SavedFoodRow(food: food)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                foodToLog = food
+                                if editMode?.wrappedValue.isEditing == false {
+                                    foodToLog = food
+                                }
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
@@ -66,6 +72,7 @@ struct SavedFoodsView: View {
                                 .tint(.blue)
                             }
                     }
+                    .onMove(perform: moveFood)
                 }
                 .searchable(text: $searchText, prompt: "Search saved foods")
             }
@@ -73,6 +80,12 @@ struct SavedFoodsView: View {
         .navigationTitle("Saved Foods")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                if !savedFoods.isEmpty && searchText.isEmpty {
+                    EditButton()
+                }
+            }
+            
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showAddFood = true
@@ -111,6 +124,22 @@ struct SavedFoodsView: View {
             let generator = UIImpactFeedbackGenerator(style: .light)
             generator.impactOccurred()
         }
+    }
+    
+    private func moveFood(from source: IndexSet, to destination: Int) {
+        guard searchText.isEmpty else { return }
+        var revisedFoods = savedFoods
+        revisedFoods.move(fromOffsets: source, toOffset: destination)
+        
+        // Assign incremental indexes starting at 1 (leaves 0 for new item insertions)
+        for index in 0..<revisedFoods.count {
+            revisedFoods[index].orderIndex = index + 1
+        }
+        
+        try? modelContext.save()
+        
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
     }
 }
 

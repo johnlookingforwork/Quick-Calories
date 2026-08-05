@@ -41,8 +41,9 @@ final class SavedFood {
     var carbs: Double
     var fat: Double
     var createdAt: Date
+    var orderIndex: Int = 0
     
-    init(foodName: String, servingSize: Double, unit: String, calories: Int, protein: Double, carbs: Double, fat: Double) {
+    init(foodName: String, servingSize: Double, unit: String, calories: Int, protein: Double, carbs: Double, fat: Double, orderIndex: Int = 0) {
         self.id = UUID()
         self.foodName = foodName
         self.servingSize = servingSize
@@ -52,6 +53,7 @@ final class SavedFood {
         self.carbs = carbs
         self.fat = fat
         self.createdAt = Date()
+        self.orderIndex = orderIndex
     }
 }
 
