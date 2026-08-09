@@ -20,6 +20,12 @@ struct SavedFoodsView: View {
     @State private var foodToEdit: SavedFood?
     @State private var searchText = ""
     
+    @State private var showScanner = false
+    @State private var foodToShare: SavedFood?
+    @State private var importingFood: SavedFood?
+    @State private var showScanError = false
+    @State private var scanErrorMessage = ""
+    
     let logDate: Date?
     
     init(logDate: Date? = nil) {
@@ -70,6 +76,13 @@ struct SavedFoodsView: View {
                                     Label("Edit", systemImage: "pencil")
                                 }
                                 .tint(.blue)
+                                
+                                Button {
+                                    foodToShare = food
+                                } label: {
+                                    Label("Share", systemImage: "qrcode")
+                                }
+                                .tint(.purple)
                             }
                     }
                     .onMove(perform: moveFood)
@@ -87,10 +100,18 @@ struct SavedFoodsView: View {
             }
             
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showAddFood = true
-                } label: {
-                    Image(systemName: "plus")
+                HStack(spacing: 16) {
+                    Button {
+                        showScanner = true
+                    } label: {
+                        Image(systemName: "qrcode.viewfinder")
+                    }
+                    
+                    Button {
+                        showAddFood = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
                 }
             }
             
@@ -115,6 +136,81 @@ struct SavedFoodsView: View {
         .sheet(item: $foodToEdit) { food in
             EditSavedFoodView(food: food)
         }
+        .sheet(item: $foodToShare) { food in
+            ShareFoodQRView(food: food)
+        }
+        .sheet(isPresented: $showScanner) {
+            QRScannerView { scannedPayload in
+                showScanner = false
+                handleScanSuccess(payload: scannedPayload)
+            } onScanFailure: { error in
+                showScanner = false
+                scanErrorMessage = error
+                showScanError = true
+            }
+        }
+        .sheet(item: $importingFood) { food in
+            ImportSavedFoodView(food: food) {
+                // Scan success handler
+            }
+        }
+        .alert("Scanning Error", isPresented: $showScanError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(scanErrorMessage)
+        }
+    }
+    
+    private func handleScanSuccess(payload: String) {
+        guard let data = payload.data(using: .utf8) else {
+            scanErrorMessage = "The scanned code is empty or invalid."
+            showScanError = true
+            return
+        }
+        
+        do {
+            guard let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
+                scanErrorMessage = "Failed to parse the QR code. Please check that you are scanning a QuickCalories code."
+                showScanError = true
+                return
+            }
+            
+            guard let type = json["type"] as? String, type == "quickcalories_food" else {
+                scanErrorMessage = "This QR code does not contain a QuickCalories food item."
+                showScanError = true
+                return
+            }
+            
+            guard let name = json["name"] as? String,
+                  let servingSize = json["servingSize"] as? Double,
+                  let unit = json["unit"] as? String,
+                  let calories = json["calories"] as? Int,
+                  let protein = json["protein"] as? Double,
+                  let carbs = json["carbs"] as? Double,
+                  let fat = json["fat"] as? Double else {
+                scanErrorMessage = "The shared food data is incomplete or corrupted."
+                showScanError = true
+                return
+            }
+            
+            let food = SavedFood(
+                foodName: name,
+                servingSize: servingSize,
+                unit: unit,
+                calories: calories,
+                protein: protein,
+                carbs: carbs,
+                fat: fat
+            )
+            
+            DispatchQueue.main.async {
+                self.importingFood = food
+            }
+            
+        } catch {
+            scanErrorMessage = "Could not decode QR code data: \(error.localizedDescription)"
+            showScanError = true
+        }
     }
     
     private func deleteFood(_ food: SavedFood) {
@@ -128,15 +224,20 @@ struct SavedFoodsView: View {
     
     private func moveFood(from source: IndexSet, to destination: Int) {
         guard searchText.isEmpty else { return }
-        var revisedFoods = savedFoods
-        revisedFoods.move(fromOffsets: source, toOffset: destination)
         
-        // Assign incremental indexes starting at 1 (leaves 0 for new item insertions)
-        for index in 0..<revisedFoods.count {
-            revisedFoods[index].orderIndex = index + 1
+        // Defer context updates and saving to the next run loop cycle.
+        // This allows the list's drop transition to finish smoothly without blocking the main thread.
+        DispatchQueue.main.async {
+            var revisedFoods = savedFoods
+            revisedFoods.move(fromOffsets: source, toOffset: destination)
+            
+            // Assign incremental indexes starting at 1 (leaves 0 for new item insertions)
+            for index in 0..<revisedFoods.count {
+                revisedFoods[index].orderIndex = index + 1
+            }
+            
+            try? modelContext.save()
         }
-        
-        try? modelContext.save()
         
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
