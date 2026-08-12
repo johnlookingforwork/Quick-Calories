@@ -12,6 +12,9 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @Query(sort: \FoodEntry.timestamp, order: .reverse) private var foodEntries: [FoodEntry]
     @Query(sort: \WorkoutEntry.timestamp, order: .reverse) private var workoutEntries: [WorkoutEntry]
+    @Query(sort: \DailyTargetLog.date, order: .reverse) private var targetLogs: [DailyTargetLog]
+    
+    @State private var weightHistory: [Date: Double] = [:]
     
     @State private var calorieTarget = 2000
     @State private var proteinTarget = 150.0
@@ -23,32 +26,37 @@ struct SettingsView: View {
     @State private var showPaywall = false
     @State private var showDeveloperConfig = false
     @State private var showDataSources = false
+    @State private var showAPIKeySetup = false
+    @State private var showWeightGoalSetup = false
     @State private var versionTapCount = 0
     
+    private var healthKitManager = HealthKitManager.shared
     private var settings = SettingsManager.shared
     
     private var appVersion: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
-        return "\(version) (\(build))"
+        if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+           let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
+            return "\(version) (\(build))"
+        }
+        return "1.0.0"
     }
     
     var body: some View {
         Form {
-            Section {
-                // Display current targets
+            // Your Plan Section (Calorie Target Card + Summary Rows)
+            Section("Your Plan") {
                 VStack(spacing: 16) {
                     VStack(spacing: 4) {
                         Text("\(calorieTarget)")
-                            .font(.system(size: 42, weight: .bold, design: .rounded))
-                            .foregroundStyle(.primary)
+                            .font(.system(size: 48, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color.accentColor)
                         
-                        Text("calories per day")
+                        Text("daily calorie target")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     
-                    HStack(spacing: 20) {
+                    HStack(spacing: 12) {
                         MacroTargetBadge(name: "Protein", amount: proteinTarget, color: .red)
                         MacroTargetBadge(name: "Carbs", amount: carbsTarget, color: .blue)
                         MacroTargetBadge(name: "Fat", amount: fatTarget, color: .yellow)
@@ -62,167 +70,163 @@ struct SettingsView: View {
                 } label: {
                     HStack {
                         Spacer()
-                        Text("Edit Targets")
+                        Label("Adjust Calories & Macros", systemImage: "slider.horizontal.3")
+                            .fontWeight(.semibold)
                         Spacer()
                     }
                 }
                 .buttonStyle(.borderedProminent)
                 
-                if settings.hasProfileData {
-                    Button {
-                        showRecalculateConfirmation = true
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Label("Recalculate from Profile", systemImage: "arrow.clockwise")
-                            Spacer()
+                // Profile summary row
+                Button {
+                    showTargetSetup = true
+                } label: {
+                    HStack {
+                        Text("Personal Profile")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if settings.hasProfileData {
+                            Text("\(settings.userAge)y, \(settings.useMetricSystem ? String(format: "%.0f cm", settings.userHeight) : String(format: "%.0f in", settings.userHeight.cmToInches))")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("Set Up Profile")
+                                .foregroundStyle(.blue)
                         }
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.bordered)
                 }
-            } header: {
-                Text("Daily Targets")
-            } footer: {
-                if settings.hasProfileData {
-                    Text("Based on your profile: \(settings.userAge) years old, \(settings.useMetricSystem ? String(format: "%.0f kg", settings.userWeight) : String(format: "%.0f lbs", settings.userWeight.kgToLbs))")
+                .buttonStyle(.plain)
+                
+                // Weight Goal summary row
+                Button {
+                    showWeightGoalSetup = true
+                } label: {
+                    HStack {
+                        Text("Weight Goal")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if settings.targetWeight > 0 {
+                            let startStr = settings.useMetricSystem ? String(format: "%.1f kg", settings.startWeight) : String(format: "%.1f lbs", settings.startWeight.kgToLbs)
+                            let targetStr = settings.useMetricSystem ? String(format: "%.1f kg", settings.targetWeight) : String(format: "%.1f lbs", settings.targetWeight.kgToLbs)
+                            Text("\(startStr) → \(targetStr)")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("Set Up Weight Goal")
+                                .foregroundStyle(.blue)
+                        }
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .buttonStyle(.plain)
             }
             
-            Section {
-                Picker("Mode", selection: $dietMode) {
+            // Preferences Section
+            Section("Preferences") {
+                Picker("Diet Mode", selection: $dietMode) {
                     ForEach(DietMode.allCases, id: \.self) { mode in
                         Text(mode.rawValue).tag(mode)
                     }
                 }
-                .pickerStyle(.segmented)
-            } header: {
-                Text("Diet Mode")
-            } footer: {
-                switch dietMode {
-                case .normal:
-                    Text("Normal: within ±10% of your calorie target is acceptable.")
-                case .bulk:
-                    Text("Bulk: you need to eat at least your calorie target. Red if under by more than 10%.")
-                case .cut:
-                    Text("Cut: stay at or under your calorie target. Red if over by more than 10%.")
-                }
-            }
-
-            // Profile section (if exists)
-            if settings.hasProfileData {
-                Section("Your Profile") {
-                    HStack {
-                        Text("Age")
-                        Spacer()
-                        Text("\(settings.userAge) years")
-                            .foregroundStyle(.secondary)
+                
+                Toggle("Use Metric System", isOn: Binding(
+                    get: { settings.useMetricSystem },
+                    set: { newValue in
+                        settings.useMetricSystem = newValue
+                        settings.recalculateFromProfile()
+                        loadSettings()
                     }
-                    
-                    HStack {
-                        Text("Weight")
-                        Spacer()
-                        if settings.useMetricSystem {
-                            Text(String(format: "%.0f kg", settings.userWeight))
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text(String(format: "%.0f lbs", settings.userWeight.kgToLbs))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    
-                    HStack {
-                        Text("Height")
-                        Spacer()
-                        if settings.useMetricSystem {
-                            Text(String(format: "%.0f cm", settings.userHeight))
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text(String(format: "%.0f in", settings.userHeight.cmToInches))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    
-                    HStack {
-                        Text("Activity Level")
-                        Spacer()
-                        Text(settings.activityLevel)
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("Goal")
-                        Spacer()
-                        Text(settings.goalType)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                ))
             }
             
-            // API Key Status (read-only display)
-            Section {
-                if let apiKey = settings.openAIApiKey, !apiKey.isEmpty {
-                    HStack {
-                        Image(systemName: "key.fill")
-                            .foregroundStyle(.blue)
-                        Text("Using Your Own API Key")
-                        Spacer()
-                        Text("Unlimited")
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Button("Remove API Key", role: .destructive) {
-                        SettingsManager.shared.openAIApiKey = nil
-                    }
-                } else if settings.hasActiveSubscription {
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
+            // Integrations & Access Section
+            Section("Integrations & Access") {
+                // Apple Health Sync Row
+                HStack {
+                    Image(systemName: "heart.text.square.fill")
+                        .font(.title3)
+                        .foregroundStyle(.red)
+                    Text("Apple Health Sync")
+                    Spacer()
+                    if healthKitManager.isAuthorized {
+                        Text("Connected")
                             .foregroundStyle(.green)
-                        Text("Active Subscription")
-                        Spacer()
-                        Text("Unlimited")
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Free Plan")
-                            Spacer()
-                            Text("\(SettingsManager.shared.dailyAIRequestCount) / 1")
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        Button {
-                            showPaywall = true
-                        } label: {
-                            HStack {
-                                Image(systemName: "bolt.circle.fill")
-                                Text("Upgrade to Unlimited")
+                            .fontWeight(.medium)
+                    } else {
+                        Button("Connect") {
+                            healthKitManager.requestPermission { _ in
+                                loadSettings()
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.capsule)
+                        .font(.caption)
+                        .fontWeight(.bold)
                     }
                 }
-            } header: {
-                Text("AI Access")
-            } footer: {
-                if settings.openAIApiKey != nil {
-                    Text("You have unlimited AI requests. You will be billed directly by OpenAI for usage.")
-                } else {
-                    Text("Subscribe for unlimited AI requests, or use your own OpenAI API key")
+                
+                // AI Assistant Access Row
+                Button {
+                    if let _ = settings.openAIApiKey {
+                        showAPIKeySetup = true
+                    } else if settings.hasActiveSubscription {
+                        showPaywall = true
+                    } else {
+                        showPaywall = true
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "sparkles")
+                            .font(.title3)
+                            .foregroundStyle(.blue)
+                        Text("AI Assistant Access")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if let apiKey = settings.openAIApiKey, !apiKey.isEmpty {
+                            Text("Custom API Key")
+                                .foregroundStyle(.secondary)
+                        } else if settings.hasActiveSubscription {
+                            Text("Unlimited (Premium)")
+                                .foregroundStyle(.green)
+                        } else {
+                            Text("Free Plan (1 daily)")
+                                .foregroundStyle(.secondary)
+                        }
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                
+                if let apiKey = settings.openAIApiKey, !apiKey.isEmpty {
+                    Button("Remove Custom API Key", role: .destructive) {
+                        settings.openAIApiKey = nil
+                        loadSettings()
+                    }
                 }
             }
             
+            // Data Management Section
             Section("Data Management") {
                 ShareLink(
-                    item: CSVExporter(foodEntries: foodEntries, workoutEntries: workoutEntries),
+                    item: CSVExporter(
+                        foodEntries: foodEntries,
+                        workoutEntries: workoutEntries,
+                        targetLogs: targetLogs,
+                        weightHistory: weightHistory,
+                        useMetric: settings.useMetricSystem
+                    ),
                     preview: SharePreview("QuickCalories Export", image: Image(systemName: "tablecells"))
                 ) {
                     Label("Export Logs to CSV", systemImage: "square.and.arrow.up")
                 }
             }
             
+            // About Section
             Section("About") {
                 Button {
                     showDataSources = true
@@ -271,11 +275,17 @@ struct SettingsView: View {
         .sheet(isPresented: $showPaywall) {
             PaywallView()
         }
+        .sheet(isPresented: $showAPIKeySetup) {
+            APIKeyConfigView()
+        }
         .sheet(isPresented: $showDeveloperConfig) {
             DeveloperConfigView()
         }
         .sheet(isPresented: $showDataSources) {
             DataSourcesView()
+        }
+        .sheet(isPresented: $showWeightGoalSetup) {
+            WeightGoalSetupView()
         }
         .confirmationDialog(
             "Recalculate Targets",
@@ -291,6 +301,15 @@ struct SettingsView: View {
         }
         .task {
             loadSettings()
+            if HealthKitManager.shared.isAuthorized {
+                HealthKitManager.shared.fetchWeightHistory(daysLimit: 365) { history in
+                    if let history = history {
+                        DispatchQueue.main.async {
+                            self.weightHistory = history
+                        }
+                    }
+                }
+            }
         }
         .onChange(of: calorieTarget) { _, newValue in
             SettingsManager.shared.dailyCalorieTarget = newValue
@@ -413,7 +432,7 @@ struct APIKeyInfoView: View {
 #Preview {
     NavigationStack {
         SettingsView()
-            .modelContainer(for: [FoodEntry.self, WorkoutEntry.self], inMemory: true)
+            .modelContainer(for: [FoodEntry.self, WorkoutEntry.self, DailyTargetLog.self], inMemory: true)
     }
 }
 
@@ -421,6 +440,9 @@ struct APIKeyInfoView: View {
 struct CSVExporter: Transferable {
     let foodEntries: [FoodEntry]
     let workoutEntries: [WorkoutEntry]
+    let targetLogs: [DailyTargetLog]
+    let weightHistory: [Date: Double]
+    let useMetric: Bool
     
     static var transferRepresentation: some TransferRepresentation {
         DataRepresentation(exportedContentType: .commaSeparatedText) { exporter in
@@ -436,7 +458,8 @@ struct CSVExporter: Transferable {
     }
     
     private func generateCSV() -> String {
-        var csv = "Date,Type,Name,Calories Consumed,Calories Burned,Protein (g),Carbs (g),Fat (g),Servings\n"
+        let unitStr = useMetric ? "kg" : "lbs"
+        var csv = "Date,Type,Name,Calories Consumed,Calories Burned,Protein (g),Carbs (g),Fat (g),Servings,Weight (\(unitStr)),Target Calories,Target Protein (g),Target Carbs (g),Target Fat (g)\n"
         
         let displayFormatter = DateFormatter()
         displayFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
@@ -451,6 +474,11 @@ struct CSVExporter: Transferable {
             let carbs: Double
             let fat: Double
             let servings: Double
+            let weight: Double
+            let targetCalories: Int
+            let targetProtein: Double
+            let targetCarbs: Double
+            let targetFat: Double
             
             static func < (lhs: ExportableItem, rhs: ExportableItem) -> Bool {
                 lhs.date < rhs.date
@@ -458,6 +486,8 @@ struct CSVExporter: Transferable {
         }
         
         var items: [ExportableItem] = []
+        
+        // 1. Food Entries
         for food in foodEntries {
             items.append(ExportableItem(
                 date: food.timestamp,
@@ -468,9 +498,16 @@ struct CSVExporter: Transferable {
                 protein: food.protein,
                 carbs: food.carbs,
                 fat: food.fat,
-                servings: food.servings
+                servings: food.servings,
+                weight: 0,
+                targetCalories: 0,
+                targetProtein: 0,
+                targetCarbs: 0,
+                targetFat: 0
             ))
         }
+        
+        // 2. Workout Entries
         for workout in workoutEntries {
             items.append(ExportableItem(
                 date: workout.timestamp,
@@ -481,7 +518,53 @@ struct CSVExporter: Transferable {
                 protein: 0,
                 carbs: 0,
                 fat: 0,
-                servings: 0
+                servings: 0,
+                weight: 0,
+                targetCalories: 0,
+                targetProtein: 0,
+                targetCarbs: 0,
+                targetFat: 0
+            ))
+        }
+        
+        // 3. Weight Logs
+        for (date, weightInKg) in weightHistory {
+            let displayWeight = useMetric ? weightInKg : weightInKg.kgToLbs
+            items.append(ExportableItem(
+                date: date,
+                type: "Weight",
+                name: "Apple Health Weight Sync",
+                caloriesConsumed: 0,
+                caloriesBurned: 0,
+                protein: 0,
+                carbs: 0,
+                fat: 0,
+                servings: 0,
+                weight: displayWeight,
+                targetCalories: 0,
+                targetProtein: 0,
+                targetCarbs: 0,
+                targetFat: 0
+            ))
+        }
+        
+        // 4. Target Logs
+        for log in targetLogs {
+            items.append(ExportableItem(
+                date: log.date,
+                type: "Daily Target",
+                name: "Calorie & Macro Targets",
+                caloriesConsumed: 0,
+                caloriesBurned: 0,
+                protein: 0,
+                carbs: 0,
+                fat: 0,
+                servings: 0,
+                weight: 0,
+                targetCalories: log.calories,
+                targetProtein: log.protein,
+                targetCarbs: log.carbs,
+                targetFat: log.fat
             ))
         }
         
@@ -490,10 +573,104 @@ struct CSVExporter: Transferable {
         for item in items {
             let dateStr = displayFormatter.string(from: item.date)
             let escapedName = item.name.replacingOccurrences(of: "\"", with: "\"\"")
-            let row = "\"\(dateStr)\",\"\(item.type)\",\"\(escapedName)\",\(item.caloriesConsumed),\(item.caloriesBurned),\(item.protein),\(item.carbs),\(item.fat),\(item.servings)\n"
+            
+            let row = "\"\(dateStr)\",\"\(item.type)\",\"\(escapedName)\",\(item.caloriesConsumed),\(item.caloriesBurned),\(item.protein),\(item.carbs),\(item.fat),\(item.servings),\(item.weight > 0 ? String(format: "%.1f", item.weight) : ""),\(item.targetCalories > 0 ? "\(item.targetCalories)" : ""),\(item.targetProtein > 0 ? String(format: "%.1f", item.targetProtein) : ""),\(item.targetCarbs > 0 ? String(format: "%.1f", item.targetCarbs) : ""),\(item.targetFat > 0 ? String(format: "%.1f", item.targetFat) : "")\n"
+            
             csv.append(row)
         }
         
         return csv
+    }
+}
+
+struct WeightGoalSetupView: View {
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var startWeight: Double
+    @State private var targetWeight: Double
+    @State private var targetDate: Date
+    @State private var useAdaptiveCalorieTarget: Bool
+    
+    private var settings = SettingsManager.shared
+    
+    init() {
+        let settings = SettingsManager.shared
+        _startWeight = State(initialValue: settings.useMetricSystem ? settings.startWeight : settings.startWeight.kgToLbs)
+        _targetWeight = State(initialValue: settings.useMetricSystem ? settings.targetWeight : settings.targetWeight.kgToLbs)
+        _targetDate = State(initialValue: settings.targetDate)
+        _useAdaptiveCalorieTarget = State(initialValue: settings.useAdaptiveCalorieTarget)
+    }
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Goal Details") {
+                    HStack {
+                        Text("Starting Weight")
+                        Spacer()
+                        TextField("141", value: $startWeight, format: .number)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
+                        Text(settings.useMetricSystem ? "kg" : "lbs")
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    HStack {
+                        Text("Target Weight")
+                        Spacer()
+                        TextField("130", value: $targetWeight, format: .number)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
+                        Text(settings.useMetricSystem ? "kg" : "lbs")
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    DatePicker("Target Date", selection: $targetDate, displayedComponents: .date)
+                }
+                
+                Section {
+                    Toggle(isOn: $useAdaptiveCalorieTarget) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Adaptive Calorie Target")
+                            Text("Auto-adjusts your daily target based on your active metabolic rate.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Automation")
+                } footer: {
+                    Text("If enabled, the app will update your calorie target daily based on your weight logs and calorie intake. Macronutrient targets (Protein, Carbs, Fat) will automatically scale proportionally to preserve your preferred macro ratio.")
+                }
+            }
+            .navigationTitle("Setup Weight Goal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        saveGoal()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func saveGoal() {
+        settings.startWeight = settings.useMetricSystem ? startWeight : startWeight.lbsToKg
+        settings.targetWeight = settings.useMetricSystem ? targetWeight : targetWeight.lbsToKg
+        settings.targetDate = targetDate
+        settings.useAdaptiveCalorieTarget = useAdaptiveCalorieTarget
+        
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+        
+        dismiss()
     }
 }

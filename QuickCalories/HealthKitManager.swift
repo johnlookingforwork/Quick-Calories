@@ -88,4 +88,42 @@ class HealthKitManager: ObservableObject {
         
         healthStore.execute(query)
     }
+    
+    func fetchWeightHistory(daysLimit: Int, completion: @escaping ([Date: Double]?) -> Void) {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            completion(nil)
+            return
+        }
+        
+        guard let weightType = HKObjectType.quantityType(forIdentifier: .bodyMass) else {
+            completion(nil)
+            return
+        }
+        
+        let calendar = Calendar.current
+        let startDate = calendar.date(byAdding: .day, value: -daysLimit, to: Date())!
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: Date(), options: .strictStartDate)
+        
+        let query = HKSampleQuery(
+            sampleType: weightType,
+            predicate: predicate,
+            limit: HKObjectQueryNoLimit,
+            sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]
+        ) { _, results, _ in
+            guard let samples = results as? [HKQuantitySample] else {
+                completion(nil)
+                return
+            }
+            
+            var history: [Date: Double] = [:]
+            let kgUnit = HKUnit.gramUnit(with: .kilo)
+            for sample in samples {
+                let day = calendar.startOfDay(for: sample.startDate)
+                history[day] = sample.quantity.doubleValue(for: kgUnit)
+            }
+            completion(history)
+        }
+        
+        healthStore.execute(query)
+    }
 }

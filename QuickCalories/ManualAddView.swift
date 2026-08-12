@@ -277,6 +277,7 @@ struct ManualAddView: View {
         )
         
         modelContext.insert(entry)
+        DailyTargetLog.ensureTargetLog(for: smartTimestamp, modelContext: modelContext)
         
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()

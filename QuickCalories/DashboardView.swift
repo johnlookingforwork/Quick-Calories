@@ -12,6 +12,7 @@ struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var allEntries: [FoodEntry]
     @Query private var allWorkouts: [WorkoutEntry]
+    @Query private var allTargetLogs: [DailyTargetLog]
     @State private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
     @State private var showPaywall = false
     @State private var showAILog = false
@@ -52,6 +53,19 @@ struct DashboardView: View {
              totals.2 + entry.carbs,
              totals.3 + entry.fat)
         }
+    }
+    
+    private var displayDateTargets: (calories: Int, protein: Double, carbs: Double, fat: Double) {
+        let targetDate = calendar.startOfDay(for: selectedDate)
+        if let log = allTargetLogs.first(where: { calendar.isDate($0.date, inSameDayAs: targetDate) }) {
+            return (calories: log.calories, protein: log.protein, carbs: log.carbs, fat: log.fat)
+        }
+        return (
+            calories: settings.dailyCalorieTarget,
+            protein: settings.proteinTarget,
+            carbs: settings.carbsTarget,
+            fat: settings.fatTarget
+        )
     }
     
     private var sectionTitle: String {
@@ -102,12 +116,7 @@ struct DashboardView: View {
                     DailyProgressView(
                         todayTotals: displayDateTotals,
                         workoutCalories: displayDateWorkoutCalories,
-                        targets: (
-                            calories: settings.dailyCalorieTarget,
-                            protein: settings.proteinTarget,
-                            carbs: settings.carbsTarget,
-                            fat: settings.fatTarget
-                        ),
+                        targets: displayDateTargets,
                         dietMode: settings.dietMode
                     )
                     .padding(.horizontal)
@@ -341,6 +350,10 @@ struct DashboardView: View {
                 .padding(.trailing, 20)
                 .padding(.bottom, 20)
             }
+            .task {
+                SettingsManager.shared.updateAdaptiveCalorieTarget(allEntries: allEntries)
+                DailyTargetLog.saveOrUpdateTodayTargetLog(modelContext: modelContext)
+            }
         }
     }
     
@@ -486,8 +499,21 @@ struct DailyProgressView: View {
                 }
             }
             
-            ProgressView(value: min(calorieProgress, 1.0))
-                .tint(isOverBudget ? .red : .green)
+            VStack(spacing: 6) {
+                ProgressView(value: min(calorieProgress, 1.0))
+                    .tint(isOverBudget ? .red : .green)
+                
+                HStack {
+                    Text("0 cal")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("Target: \(targets.calories) cal")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+                }
+            }
             
             HStack(spacing: 16) {
                 MacroProgressView(
@@ -1052,5 +1078,5 @@ struct LogRecentFoodView: View {
 
 #Preview {
     DashboardView()
-        .modelContainer(for: FoodEntry.self, inMemory: true)
+        .modelContainer(for: [FoodEntry.self, WorkoutEntry.self, DailyTargetLog.self], inMemory: true)
 }

@@ -15,6 +15,7 @@ struct QuickCaloriesApp: App {
             FoodEntry.self,
             SavedFood.self,
             WorkoutEntry.self,
+            DailyTargetLog.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -31,6 +32,7 @@ struct QuickCaloriesApp: App {
     
     init() {
         print("✅ QuickCaloriesApp initializing...")
+        SettingsManager.shared.modelContainer = sharedModelContainer
     }
 
     var body: some Scene {

@@ -7,6 +7,8 @@
 
 import Foundation
 import Observation
+import HealthKit
+import SwiftData
 
 enum DietMode: String, CaseIterable {
     case normal = "Normal"
@@ -17,6 +19,15 @@ enum DietMode: String, CaseIterable {
 @Observable
 final class SettingsManager {
     static let shared = SettingsManager()
+    
+    var modelContainer: ModelContainer? = nil
+    
+    @MainActor
+    func saveOrUpdateTodayTargetLog() {
+        guard let container = modelContainer else { return }
+        let context = container.mainContext
+        DailyTargetLog.saveOrUpdateTodayTargetLog(modelContext: context)
+    }
     
     var dailyCalorieTarget: Int = 2000 {
         didSet {
@@ -101,6 +112,42 @@ final class SettingsManager {
         }
     }
     
+    var targetWeight: Double = 0.0 {
+        didSet {
+            UserDefaults.standard.set(targetWeight, forKey: "targetWeight")
+        }
+    }
+    
+    var targetDate: Date = Date() {
+        didSet {
+            UserDefaults.standard.set(targetDate, forKey: "targetDate")
+        }
+    }
+    
+    var startWeight: Double = 0.0 {
+        didSet {
+            UserDefaults.standard.set(startWeight, forKey: "startWeight")
+        }
+    }
+    
+    var startDate: Date = Date() {
+        didSet {
+            UserDefaults.standard.set(startDate, forKey: "startDate")
+        }
+    }
+    
+    var useAdaptiveCalorieTarget: Bool = false {
+        didSet {
+            UserDefaults.standard.set(useAdaptiveCalorieTarget, forKey: "useAdaptiveCalorieTarget")
+        }
+    }
+    
+    var lastTargetUpdateTime: Date? = nil {
+        didSet {
+            UserDefaults.standard.set(lastTargetUpdateTime, forKey: "lastTargetUpdateTime")
+        }
+    }
+    
     var macroSplitType: String = MacroSplit.balanced.rawValue {
         didSet {
             UserDefaults.standard.set(macroSplitType, forKey: "macroSplitType")
@@ -171,6 +218,14 @@ final class SettingsManager {
         let savedDietMode = UserDefaults.standard.string(forKey: "dietMode") ?? ""
         self.dietMode = DietMode(rawValue: savedDietMode) ?? .normal
         
+        // Load weight goal data
+        self.targetWeight = UserDefaults.standard.double(forKey: "targetWeight")
+        self.targetDate = UserDefaults.standard.object(forKey: "targetDate") as? Date ?? Date().addingTimeInterval(60 * 60 * 24 * 30)
+        self.startWeight = UserDefaults.standard.double(forKey: "startWeight")
+        self.startDate = UserDefaults.standard.object(forKey: "startDate") as? Date ?? Date()
+        self.useAdaptiveCalorieTarget = UserDefaults.standard.bool(forKey: "useAdaptiveCalorieTarget")
+        self.lastTargetUpdateTime = UserDefaults.standard.object(forKey: "lastTargetUpdateTime") as? Date
+        
         // Migration: If user has custom targets but hasn't "completed onboarding",
         // mark them as having completed it to skip onboarding for existing users
         if !self.hasCompletedOnboarding && savedCalories > 0 {
@@ -216,26 +271,143 @@ final class SettingsManager {
               let activity = ActivityLevel(rawValue: activityLevel),
               let goal = Goal(rawValue: goalType) else { return }
         
-        // Calculate new calorie target
-        dailyCalorieTarget = CalorieCalculator.calculateDailyTarget(
-            weight: userWeight,
-            height: userHeight,
-            age: userAge,
-            gender: gender,
-            activityLevel: activity,
-            goal: goal
-        )
+        // Calculate new calorie target ONLY if not using adaptive target
+        if !useAdaptiveCalorieTarget {
+            dailyCalorieTarget = CalorieCalculator.calculateDailyTarget(
+                weight: userWeight,
+                height: userHeight,
+                age: userAge,
+                gender: gender,
+                activityLevel: activity,
+                goal: goal
+            )
+        }
         
-        // Recalculate macros based on saved split type
-        if let split = MacroSplit(rawValue: macroSplitType), split != .custom {
-            let macros = split.calculateMacros(totalCalories: dailyCalorieTarget, bodyWeight: userWeight)
-            proteinTarget = macros.protein
-            carbsTarget = macros.carbs
-            fatTarget = macros.fat
+        recalculateMacrosOnly()
+        lastTargetUpdateTime = Date()
+        saveOrUpdateTodayTargetLog()
+    }
+    
+    /// Recalculates macronutrient targets while preserving ratios
+    func recalculateMacrosOnly() {
+        if let split = MacroSplit(rawValue: macroSplitType) {
+            if split != .custom {
+                let macros = split.calculateMacros(totalCalories: dailyCalorieTarget, bodyWeight: userWeight)
+                proteinTarget = macros.protein
+                carbsTarget = macros.carbs
+                fatTarget = macros.fat
+            } else {
+                // For custom setups, scale grams proportionally to preserve macro ratios
+                let currentMacroCalories = (proteinTarget * 4.0) + (carbsTarget * 4.0) + (fatTarget * 9.0)
+                guard currentMacroCalories > 0 else { return }
+                
+                let scaleFactor = Double(dailyCalorieTarget) / currentMacroCalories
+                proteinTarget = (proteinTarget * scaleFactor).rounded()
+                carbsTarget = (carbsTarget * scaleFactor).rounded()
+                fatTarget = (fatTarget * scaleFactor).rounded()
+            }
         }
     }
     
     var hasProfileData: Bool {
         userAge > 0 && userWeight > 0 && userHeight > 0
+    }
+}
+
+extension SettingsManager {
+    func updateAdaptiveCalorieTarget(allEntries: [FoodEntry]) {
+        guard useAdaptiveCalorieTarget && targetWeight > 0 else { return }
+        
+        let healthManager = HealthKitManager.shared
+        guard healthManager.isAuthorized else { return }
+        
+        healthManager.fetchLatestWeight { currentWeight in
+            healthManager.fetchWeightHistory(daysLimit: 30) { history in
+                guard let history = history, let currentWeight = currentWeight else { return }
+                
+                let calendar = Calendar.current
+                let today = calendar.startOfDay(for: Date())
+                
+                var startWeights: [Double] = []
+                var endWeights: [Double] = []
+                for (date, weight) in history {
+                    let daysAgo = calendar.dateComponents([.day], from: date, to: today).day ?? 999
+                    if daysAgo >= 0 && daysAgo < 7 {
+                        endWeights.append(weight)
+                    } else if daysAgo >= 23 && daysAgo < 30 {
+                        startWeights.append(weight)
+                    }
+                }
+                
+                var wtChangeKg: Double? = nil
+                if !startWeights.isEmpty && !endWeights.isEmpty {
+                    let avgStart = startWeights.reduce(0.0, +) / Double(startWeights.count)
+                    let avgEnd = endWeights.reduce(0.0, +) / Double(endWeights.count)
+                    wtChangeKg = avgEnd - avgStart
+                } else {
+                    let sortedDates = history.keys.sorted()
+                    if sortedDates.count >= 2 {
+                        let oldestDate = sortedDates.first!
+                        let newestDate = sortedDates.last!
+                        let daysGap = calendar.dateComponents([.day], from: oldestDate, to: newestDate).day ?? 0
+                        if daysGap >= 7, let oldestWeight = history[oldestDate], let newestWeight = history[newestDate] {
+                            wtChangeKg = newestWeight - oldestWeight
+                        }
+                    }
+                }
+                
+                guard let changeKg = wtChangeKg else { return }
+                
+                // Get 30-day calorie average:
+                var totals: [Date: Int] = [:]
+                for offset in 0..<30 {
+                    if let date = calendar.date(byAdding: .day, value: -offset, to: today) {
+                        totals[date] = 0
+                    }
+                }
+                for entry in allEntries {
+                    let entryDay = calendar.startOfDay(for: entry.timestamp)
+                    if let _ = totals[entryDay] {
+                        totals[entryDay, default: 0] += entry.calories
+                    }
+                }
+                let activeDaysCal = totals.values.filter { $0 >= 100 }
+                guard !activeDaysCal.isEmpty else { return }
+                let avg30DayCal = Double(activeDaysCal.reduce(0, +)) / Double(activeDaysCal.count)
+                
+                // TDEE calculation:
+                let sortedDates = history.keys.sorted()
+                let oldestDate = sortedDates.first!
+                let newestDate = sortedDates.last!
+                let daysGap = Double(calendar.dateComponents([.day], from: oldestDate, to: newestDate).day ?? 30)
+                let days = max(7, daysGap)
+                
+                let wtChangeLbs = changeKg * 2.20462
+                let totalDeficit = wtChangeLbs * 3500.0
+                let dailyDeficit = totalDeficit / days
+                
+                let calculatedTDEE = avg30DayCal - dailyDeficit
+                let constrainedTDEE = max(1200.0, min(5000.0, calculatedTDEE))
+                
+                // Deficit target projection:
+                let daysRemaining = calendar.dateComponents([.day], from: Date(), to: self.targetDate).day ?? 30
+                let weeksRemaining = max(1.0, Double(daysRemaining) / 7.0)
+                let weightToLoseKg = currentWeight - self.targetWeight
+                let weightToLoseLbs = weightToLoseKg * 2.20462
+                let weeklyLbsTarget = weightToLoseLbs / weeksRemaining
+                let targetDailyDeficit = (weeklyLbsTarget * 3500.0) / 7.0
+                
+                let suggested = max(1200, Int(constrainedTDEE - targetDailyDeficit))
+                
+                DispatchQueue.main.async {
+                    if suggested != self.dailyCalorieTarget || self.lastTargetUpdateTime == nil {
+                        self.dailyCalorieTarget = suggested
+                        self.recalculateMacrosOnly()
+                        self.lastTargetUpdateTime = Date()
+                        self.saveOrUpdateTodayTargetLog()
+                    }
+                }
+            }
+        }
     }
 }

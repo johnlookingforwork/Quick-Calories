@@ -31,6 +31,12 @@ struct CalorieTargetSetupView: View {
     @State private var gender: Gender = .notSpecified
     @State private var useMetric: Bool = false
     
+    // Weight Goal data
+    @State private var targetWeight: String = ""
+    @State private var targetDate: Date = Date().addingTimeInterval(60 * 60 * 24 * 30) // +30 days default
+    @State private var useAdaptiveCalorieTarget: Bool = false
+    @State private var syncingHealth = false
+    
     // Macro split
     @State private var macroSplit: MacroSplit = .balanced
     @State private var customProteinPercent: Double = 30
@@ -60,7 +66,11 @@ struct CalorieTargetSetupView: View {
     }
     
     var totalSteps: Int {
-        setupMode == .guided ? 5 : 2
+        if setupMode == .guided {
+            return goal == .maintain ? 5 : 6
+        } else {
+            return 2
+        }
     }
     
     init(
@@ -158,24 +168,68 @@ struct CalorieTargetSetupView: View {
                     }
                 }
             }
+            .task {
+                let settings = SettingsManager.shared
+                if settings.targetWeight > 0 {
+                    targetWeight = settings.useMetricSystem ? String(format: "%.1f", settings.targetWeight) : String(format: "%.1f", settings.targetWeight.kgToLbs)
+                }
+                targetDate = settings.targetDate
+                useAdaptiveCalorieTarget = settings.useAdaptiveCalorieTarget
+                
+                // Pre-populate profile fields if edit mode
+                if !isOnboarding && settings.userAge > 0 {
+                    age = "\(settings.userAge)"
+                    weight = settings.useMetricSystem ? String(format: "%.1f", settings.userWeight) : String(format: "%.1f", settings.userWeight.kgToLbs)
+                    useMetric = settings.useMetricSystem
+                    goal = Goal(rawValue: settings.goalType) ?? .maintain
+                    activityLevel = ActivityLevel(rawValue: settings.activityLevel) ?? .moderate
+                    gender = Gender(rawValue: settings.userGender) ?? .notSpecified
+                    if settings.useMetricSystem {
+                        heightCm = String(format: "%.0f", settings.userHeight)
+                    } else {
+                        let totalInches = settings.userHeight.cmToInches
+                        heightFeet = Int(totalInches / 12)
+                        heightInches = Int(totalInches.truncatingRemainder(dividingBy: 12))
+                    }
+                }
+            }
         }
     }
     
     @ViewBuilder
     private var guidedSetupContent: some View {
-        switch currentStep {
-        case 1:
-            goalSelectionStep
-        case 2:
-            activityLevelStep
-        case 3:
-            profileInputStep
-        case 4:
-            calculatedResultsStep
-        case 5:
-            macroCustomizationStep
-        default:
-            EmptyView()
+        if goal == .maintain {
+            switch currentStep {
+            case 1:
+                goalSelectionStep
+            case 2:
+                activityLevelStep
+            case 3:
+                profileInputStep
+            case 4:
+                calculatedResultsStep
+            case 5:
+                macroCustomizationStep
+            default:
+                EmptyView()
+            }
+        } else {
+            switch currentStep {
+            case 1:
+                goalSelectionStep
+            case 2:
+                activityLevelStep
+            case 3:
+                profileInputStep
+            case 4:
+                weightGoalStep
+            case 5:
+                calculatedResultsStep
+            case 6:
+                macroCustomizationStep
+            default:
+                EmptyView()
+            }
         }
     }
     
@@ -438,6 +492,92 @@ struct CalorieTargetSetupView: View {
         }
     }
     
+    private var weightGoalStep: some View {
+        VStack(spacing: 24) {
+            VStack(spacing: 8) {
+                Text("Set Your Weight Goal")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Text("Define your target weight and timeframe")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            
+            VStack(spacing: 16) {
+                HStack {
+                    Text("Starting Weight")
+                        .font(.body)
+                    Spacer()
+                    Text(useMetric ? "\(weight) kg" : "\(weight) lbs")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                .cornerRadius(12)
+                
+                HStack {
+                    Text("Target Weight")
+                        .font(.body)
+                    Spacer()
+                    TextField("130", text: $targetWeight)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 80)
+                    Text(useMetric ? "kg" : "lbs")
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                .cornerRadius(12)
+                
+                DatePicker("Target Date", selection: $targetDate, in: Date()..., displayedComponents: .date)
+                    .padding()
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                    .cornerRadius(12)
+                
+                Toggle(isOn: $useAdaptiveCalorieTarget) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Adaptive Calorie Target")
+                            .font(.body)
+                        Text("Auto-adjusts target based on your active metabolic rate")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding()
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                .cornerRadius(12)
+                
+                HealthKitSyncView(
+                    healthKitManager: HealthKitManager.shared,
+                    settings: SettingsManager.shared,
+                    syncing: $syncingHealth,
+                    onSyncTrigger: {
+                        syncingHealth = true
+                        HealthKitManager.shared.fetchLatestWeight { w in
+                            DispatchQueue.main.async {
+                                syncingHealth = false
+                                if let w = w {
+                                    weight = useMetric ? String(format: "%.1f", w) : String(format: "%.1f", w.kgToLbs)
+                                }
+                            }
+                        }
+                    }
+                )
+                
+                Text("💡 When enabled, the app updates your calorie target daily based on your weight logs and calorie intake. Your macronutrient targets (Protein, Carbs, Fat) will automatically scale proportionally to preserve your preferred macro ratio.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                    .padding(.top, 4)
+            }
+            .padding(.horizontal)
+        }
+    }
+
     private var calculatedResultsStep: some View {
         VStack(spacing: 24) {
             VStack(spacing: 8) {
@@ -994,25 +1134,47 @@ struct CalorieTargetSetupView: View {
     private var canContinue: Bool {
         switch setupMode {
         case .guided:
-            switch currentStep {
-            case 1, 2, 4: return true
-            case 3:
-                // Validate profile input
-                if age.isEmpty || weight.isEmpty { return false }
-                if useMetric {
-                    return !heightCm.isEmpty
-                } else {
-                    return true // Pickers always have a value
+            if goal == .maintain {
+                switch currentStep {
+                case 1, 2, 4: return true
+                case 3:
+                    if age.isEmpty || weight.isEmpty { return false }
+                    if useMetric {
+                        return !heightCm.isEmpty
+                    } else {
+                        return true
+                    }
+                case 5:
+                    if macroSplit != .custom { return true }
+                    if macroInputMode == .percentage {
+                        return abs(customProteinPercent + customCarbsPercent + customFatPercent - 100) < 0.5
+                    } else {
+                        return true
+                    }
+                default: return false
                 }
-            case 5:
-                if macroSplit != .custom { return true }
-                if macroInputMode == .percentage {
-                    return abs(customProteinPercent + customCarbsPercent + customFatPercent - 100) < 0.5
-                } else {
-                    // In grams mode, always allow (will auto-adjust calories)
+            } else {
+                switch currentStep {
+                case 1, 2, 5: return true
+                case 3:
+                    if age.isEmpty || weight.isEmpty { return false }
+                    if useMetric {
+                        return !heightCm.isEmpty
+                    } else {
+                        return true
+                    }
+                case 4:
+                    guard let tw = Double(targetWeight), tw > 0 else { return false }
                     return true
+                case 6:
+                    if macroSplit != .custom { return true }
+                    if macroInputMode == .percentage {
+                        return abs(customProteinPercent + customCarbsPercent + customFatPercent - 100) < 0.5
+                    } else {
+                        return true
+                    }
+                default: return false
                 }
-            default: return false
             }
         case .manual:
             switch currentStep {
@@ -1022,7 +1184,6 @@ struct CalorieTargetSetupView: View {
                 if macroInputMode == .percentage {
                     return abs(customProteinPercent + customCarbsPercent + customFatPercent - 100) < 0.5
                 } else {
-                    // In grams mode, always allow (will auto-adjust calories)
                     return true
                 }
             default: return false
@@ -1031,7 +1192,7 @@ struct CalorieTargetSetupView: View {
     }
     
     private var continueButtonText: String {
-        let isLastStep = (setupMode == .guided && currentStep == 5) || (setupMode == .manual && currentStep == 2)
+        let isLastStep = (setupMode == .guided && currentStep == totalSteps) || (setupMode == .manual && currentStep == 2)
         return isLastStep ? "Save Targets" : "Continue"
     }
     
@@ -1050,8 +1211,8 @@ struct CalorieTargetSetupView: View {
                 currentStep += 1
             }
             
-            // Calculate targets when reaching step 4
-            if setupMode == .guided && currentStep == 4 {
+            let resultsStepIndex = goal == .maintain ? 4 : 5
+            if setupMode == .guided && currentStep == resultsStepIndex {
                 calculateTargets()
             }
         }
@@ -1093,15 +1254,23 @@ struct CalorieTargetSetupView: View {
     
     private func calculateFinalMacros(calories: Int) -> (protein: Double, carbs: Double, fat: Double) {
         if macroSplit == .custom {
-            let proteinCals = Double(calories) * (customProteinPercent / 100.0)
-            let carbsCals = Double(calories) * (customCarbsPercent / 100.0)
-            let fatCals = Double(calories) * (customFatPercent / 100.0)
-            
-            return (
-                protein: proteinCals / 4.0,
-                carbs: carbsCals / 4.0,
-                fat: fatCals / 9.0
-            )
+            if macroInputMode == .percentage {
+                let proteinCals = Double(calories) * (customProteinPercent / 100.0)
+                let carbsCals = Double(calories) * (customCarbsPercent / 100.0)
+                let fatCals = Double(calories) * (customFatPercent / 100.0)
+                
+                return (
+                    protein: proteinCals / 4.0,
+                    carbs: carbsCals / 4.0,
+                    fat: fatCals / 9.0
+                )
+            } else {
+                return (
+                    protein: customProteinGrams,
+                    carbs: customCarbsGrams,
+                    fat: customFatGrams
+                )
+            }
         } else {
             let bodyWeightKg = useMetric ? (Double(weight) ?? 70.0) : (Double(weight) ?? 154.0).lbsToKg
             return macroSplit.calculateMacros(totalCalories: calories, bodyWeight: bodyWeightKg)
@@ -1145,6 +1314,22 @@ struct CalorieTargetSetupView: View {
                 settings.activityLevel = activityLevel.rawValue
                 settings.goalType = goal.rawValue
                 settings.useMetricSystem = useMetric
+                
+                // Save weight goal parameters if Goal != Maintain
+                if goal != .maintain, let targetWeightDouble = Double(targetWeight) {
+                    let targetWeightKg = useMetric ? targetWeightDouble : targetWeightDouble.lbsToKg
+                    settings.targetWeight = targetWeightKg
+                    settings.targetDate = targetDate
+                    settings.useAdaptiveCalorieTarget = useAdaptiveCalorieTarget
+                    
+                    // Set starting weight to the initial weight entered
+                    settings.startWeight = weightKg
+                } else {
+                    // Clear weight goal settings if changed to Maintain
+                    settings.targetWeight = 0.0
+                    settings.startWeight = 0.0
+                    settings.useAdaptiveCalorieTarget = false
+                }
             }
             
             // Calculate and save macros
@@ -1170,6 +1355,7 @@ struct CalorieTargetSetupView: View {
         
         // Save macro split preference
         settings.macroSplitType = macroSplit.rawValue
+        settings.lastTargetUpdateTime = Date()
         
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)

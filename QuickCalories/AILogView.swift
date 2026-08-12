@@ -727,6 +727,7 @@ struct ConfirmAILogView: View {
         )
         
         modelContext.insert(entry)
+        DailyTargetLog.ensureTargetLog(for: timestamp, modelContext: modelContext)
         
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
