@@ -148,6 +148,12 @@ final class SettingsManager {
         }
     }
     
+    var metabolicWindowDays: Int = 30 {
+        didSet {
+            UserDefaults.standard.set(metabolicWindowDays, forKey: "metabolicWindowDays")
+        }
+    }
+    
     var macroSplitType: String = MacroSplit.balanced.rawValue {
         didSet {
             UserDefaults.standard.set(macroSplitType, forKey: "macroSplitType")
@@ -225,6 +231,10 @@ final class SettingsManager {
         self.startDate = UserDefaults.standard.object(forKey: "startDate") as? Date ?? Date()
         self.useAdaptiveCalorieTarget = UserDefaults.standard.bool(forKey: "useAdaptiveCalorieTarget")
         self.lastTargetUpdateTime = UserDefaults.standard.object(forKey: "lastTargetUpdateTime") as? Date
+        self.metabolicWindowDays = UserDefaults.standard.integer(forKey: "metabolicWindowDays")
+        if self.metabolicWindowDays == 0 {
+            self.metabolicWindowDays = 30
+        }
         
         // Migration: If user has custom targets but hasn't "completed onboarding",
         // mark them as having completed it to skip onboarding for existing users
@@ -328,39 +338,13 @@ extension SettingsManager {
                 let calendar = Calendar.current
                 let today = calendar.startOfDay(for: Date())
                 
-                var startWeights: [Double] = []
-                var endWeights: [Double] = []
-                for (date, weight) in history {
-                    let daysAgo = calendar.dateComponents([.day], from: date, to: today).day ?? 999
-                    if daysAgo >= 0 && daysAgo < 7 {
-                        endWeights.append(weight)
-                    } else if daysAgo >= 23 && daysAgo < 30 {
-                        startWeights.append(weight)
-                    }
-                }
+                let windowDays = self.metabolicWindowDays
+                let changeKg = self.calculateWeightChange(history: history, windowDays: windowDays)
+                guard let changeKg = changeKg else { return }
                 
-                var wtChangeKg: Double? = nil
-                if !startWeights.isEmpty && !endWeights.isEmpty {
-                    let avgStart = startWeights.reduce(0.0, +) / Double(startWeights.count)
-                    let avgEnd = endWeights.reduce(0.0, +) / Double(endWeights.count)
-                    wtChangeKg = avgEnd - avgStart
-                } else {
-                    let sortedDates = history.keys.sorted()
-                    if sortedDates.count >= 2 {
-                        let oldestDate = sortedDates.first!
-                        let newestDate = sortedDates.last!
-                        let daysGap = calendar.dateComponents([.day], from: oldestDate, to: newestDate).day ?? 0
-                        if daysGap >= 7, let oldestWeight = history[oldestDate], let newestWeight = history[newestDate] {
-                            wtChangeKg = newestWeight - oldestWeight
-                        }
-                    }
-                }
-                
-                guard let changeKg = wtChangeKg else { return }
-                
-                // Get 30-day calorie average:
+                // Get calorie average over windowDays:
                 var totals: [Date: Int] = [:]
-                for offset in 0..<30 {
+                for offset in 0..<windowDays {
                     if let date = calendar.date(byAdding: .day, value: -offset, to: today) {
                         totals[date] = 0
                     }
@@ -373,20 +357,20 @@ extension SettingsManager {
                 }
                 let activeDaysCal = totals.values.filter { $0 >= 100 }
                 guard !activeDaysCal.isEmpty else { return }
-                let avg30DayCal = Double(activeDaysCal.reduce(0, +)) / Double(activeDaysCal.count)
+                let avgCalorieIntake = Double(activeDaysCal.reduce(0, +)) / Double(activeDaysCal.count)
                 
                 // TDEE calculation:
                 let sortedDates = history.keys.sorted()
                 let oldestDate = sortedDates.first!
                 let newestDate = sortedDates.last!
-                let daysGap = Double(calendar.dateComponents([.day], from: oldestDate, to: newestDate).day ?? 30)
-                let days = max(7, daysGap)
+                let daysGap = Double(calendar.dateComponents([.day], from: oldestDate, to: newestDate).day ?? windowDays)
+                let days = max(Double(windowDays == 7 ? 3 : 7), daysGap)
                 
                 let wtChangeLbs = changeKg * 2.20462
                 let totalDeficit = wtChangeLbs * 3500.0
                 let dailyDeficit = totalDeficit / days
                 
-                let calculatedTDEE = avg30DayCal - dailyDeficit
+                let calculatedTDEE = avgCalorieIntake - dailyDeficit
                 let constrainedTDEE = max(1200.0, min(5000.0, calculatedTDEE))
                 
                 // Deficit target projection:
@@ -408,6 +392,45 @@ extension SettingsManager {
                     }
                 }
             }
+        }
+    }
+    
+    /// Helper to calculate weight change dynamically with endpoint smoothing scaled to window size
+    func calculateWeightChange(history: [Date: Double], windowDays: Int) -> Double? {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        let endWindowSize = windowDays == 7 ? 2 : 7
+        let startWindowSize = windowDays == 7 ? 2 : 7
+        
+        var startWeights: [Double] = []
+        var endWeights: [Double] = []
+        
+        for (date, weight) in history {
+            let daysAgo = calendar.dateComponents([.day], from: date, to: today).day ?? 999
+            if daysAgo >= 0 && daysAgo < endWindowSize {
+                endWeights.append(weight)
+            } else if daysAgo >= (windowDays - startWindowSize) && daysAgo < windowDays {
+                startWeights.append(weight)
+            }
+        }
+        
+        if !startWeights.isEmpty && !endWeights.isEmpty {
+            let avgStart = startWeights.reduce(0.0, +) / Double(startWeights.count)
+            let avgEnd = endWeights.reduce(0.0, +) / Double(endWeights.count)
+            return avgEnd - avgStart
+        } else {
+            // Fallback to raw oldest/newest within the window
+            let sortedDates = history.keys.filter { date in
+                let daysAgo = calendar.dateComponents([.day], from: date, to: today).day ?? 999
+                return daysAgo >= 0 && daysAgo < windowDays
+            }.sorted()
+            
+            guard sortedDates.count >= 2 else { return nil }
+            if let oldest = history[sortedDates.first!], let newest = history[sortedDates.last!] {
+                return newest - oldest
+            }
+            return nil
         }
     }
 }

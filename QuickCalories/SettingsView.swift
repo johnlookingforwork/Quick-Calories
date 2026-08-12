@@ -132,6 +132,18 @@ struct SettingsView: View {
                     }
                 }
                 
+                Picker("Metabolic Window", selection: Binding(
+                    get: { settings.metabolicWindowDays },
+                    set: { newValue in
+                        settings.metabolicWindowDays = newValue
+                        settings.updateAdaptiveCalorieTarget(allEntries: foodEntries)
+                        loadSettings()
+                    }
+                )) {
+                    Text("7 Days").tag(7)
+                    Text("30 Days").tag(30)
+                }
+                
                 Toggle("Use Metric System", isOn: Binding(
                     get: { settings.useMetricSystem },
                     set: { newValue in

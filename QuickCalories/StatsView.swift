@@ -100,6 +100,10 @@ struct StatsView: View {
         getAverages(daysLimit: 30)
     }
     
+    private var averagesForWindow: (calories: Int, protein: Double, carbs: Double, fat: Double, activeCount: Int) {
+        getAverages(daysLimit: settings.metabolicWindowDays)
+    }
+    
     // Calorie maintenance (TDEE) based on target settings
     private var userTDEE: Int {
         let target = settings.dailyCalorieTarget
@@ -127,49 +131,16 @@ struct StatsView: View {
         return settings.userWeight
     }
     
-    // Weight change trend analysis (kg) over 30 days
-    private var weightChange30Day: Double? {
+    // Weight change trend analysis (kg) over the metabolic window
+    private var weightChangeForWindow: Double? {
         guard !weightHistory.isEmpty else { return nil }
-        
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        
-        var startWeights: [Double] = []
-        var endWeights: [Double] = []
-        
-        for (date, weight) in weightHistory {
-            let daysAgo = calendar.dateComponents([.day], from: date, to: today).day ?? 999
-            if daysAgo >= 0 && daysAgo < 7 {
-                endWeights.append(weight)
-            } else if daysAgo >= 23 && daysAgo < 30 {
-                startWeights.append(weight)
-            }
-        }
-        
-        if startWeights.isEmpty || endWeights.isEmpty {
-            let sortedDates = weightHistory.keys.sorted()
-            guard sortedDates.count >= 2 else { return nil }
-            
-            let oldestDate = sortedDates.first!
-            let newestDate = sortedDates.last!
-            let daysGap = calendar.dateComponents([.day], from: oldestDate, to: newestDate).day ?? 0
-            guard daysGap >= 7 else { return nil }
-            
-            if let oldestWeight = weightHistory[oldestDate],
-               let newestWeight = weightHistory[newestDate] {
-                return newestWeight - oldestWeight
-            }
-            return nil
-        }
-        
-        let avgStart = startWeights.reduce(0.0, +) / Double(startWeights.count)
-        let avgEnd = endWeights.reduce(0.0, +) / Double(endWeights.count)
-        return avgEnd - avgStart
+        return settings.calculateWeightChange(history: weightHistory, windowDays: settings.metabolicWindowDays)
     }
     
     // True calculated maintenance calories based on actual energy intake & weight changes
     private var adaptiveTDEE: Int {
-        guard let wtChangeKg = weightChange30Day, averages30Day.calories > 0 else {
+        let windowDays = settings.metabolicWindowDays
+        guard let wtChangeKg = weightChangeForWindow, averagesForWindow.calories > 0 else {
             return userTDEE
         }
         
@@ -178,14 +149,14 @@ struct StatsView: View {
         guard let oldestDate = sortedDates.first, let newestDate = sortedDates.last else {
             return userTDEE
         }
-        let daysGap = Double(calendar.dateComponents([.day], from: oldestDate, to: newestDate).day ?? 30)
-        let days = max(7, daysGap)
+        let daysGap = Double(calendar.dateComponents([.day], from: oldestDate, to: newestDate).day ?? windowDays)
+        let days = max(Double(windowDays == 7 ? 3 : 7), daysGap)
         
         let wtChangeLbs = wtChangeKg * 2.20462
         let totalDeficit = wtChangeLbs * 3500.0
         let dailyDeficit = totalDeficit / days
         
-        let tdee = Double(averages30Day.calories) - dailyDeficit
+        let tdee = Double(averagesForWindow.calories) - dailyDeficit
         return max(1200, min(5000, Int(tdee)))
     }
     
@@ -760,7 +731,7 @@ struct StatsView: View {
                                     .foregroundStyle(Color.accentColor)
                             }
                             
-                            Text("This is your actual metabolism (including BMR, daily steps, and workouts). It is how many calories you burn per day, calculated from your real-world weight changes and logged food.")
+                            Text("This is your actual metabolism (including BMR, daily steps, and workouts). It is how many calories you burn per day, calculated from your real-world weight changes and logged food over the last \(settings.metabolicWindowDays) days.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineSpacing(2)
