@@ -257,6 +257,14 @@ struct DashboardView: View {
                 
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
+                        StatsView()
+                    } label: {
+                        Image(systemName: "chart.bar.xaxis")
+                    }
+                }
+                
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
                         SettingsView()
                     } label: {
                         Image(systemName: "gearshape")
