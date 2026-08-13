@@ -320,6 +320,7 @@ struct FoodLoggingHubView: View {
                             recipeDescription: item.recipeDescription
                         )
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -365,6 +366,7 @@ struct FoodLoggingHubView: View {
                             servingInfo: "\(String(format: "%.1f", food.servingSize)) \(food.unit)"
                         )
                     }
+                    .buttonStyle(.plain)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
                             modelContext.delete(food)
@@ -434,6 +436,7 @@ struct FoodLoggingHubView: View {
                             recipeDescription: recipe.ingredientListSummary
                         )
                     }
+                    .buttonStyle(.plain)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
                             modelContext.delete(recipe)
