@@ -327,14 +327,13 @@ struct IngredientSelectorView: View {
                                     fat: food.fat,
                                     servingInfo: "\(String(format: "%.1f", food.servingSize)) \(food.unit)"
                                 )
+                                .colorScheme(.light)
                             }
                             .buttonStyle(.plain)
-                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.white)
                         }
                     }
-                    .listStyle(.plain)
+                    .listStyle(.insetGrouped)
                 }
             }
             .navigationTitle("Select Food")

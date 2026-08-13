@@ -738,9 +738,10 @@ struct FoodEntryRow: View {
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 16)
-        .background(Color(red: 0.11, green: 0.11, blue: 0.12))
+        .background(Color.white)
         .cornerRadius(14)
         .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1.5)
+        .colorScheme(.light)
     }
 }
 

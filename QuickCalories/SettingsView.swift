@@ -49,7 +49,7 @@ struct SettingsView: View {
                     VStack(spacing: 4) {
                         Text("\(calorieTarget)")
                             .font(.system(size: 48, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(.white)
                         
                         Text("daily calorie target")
                             .font(.caption)
@@ -72,10 +72,11 @@ struct SettingsView: View {
                         Spacer()
                         Label("Adjust Calories & Macros", systemImage: "slider.horizontal.3")
                             .fontWeight(.semibold)
+                            .foregroundStyle(Color.accentColor)
                         Spacer()
                     }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.plain)
                 
                 // Profile summary row
                 Button {
