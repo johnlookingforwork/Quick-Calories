@@ -328,25 +328,32 @@ struct FoodLoggingHubView: View {
     
     @ViewBuilder
     private var savedFoodsSection: some View {
-        Section {
-            Button {
-                showAddSavedFood = true
-            } label: {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                    Text("Add New Food")
-                }
-            }
-        }
-        
         if filteredSavedFoods.isEmpty {
             Section {
+                Button {
+                    showAddSavedFood = true
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Add New Food")
+                    }
+                }
+                
                 Text(searchText.isEmpty ? "No saved food templates found." : "No matching saved foods.")
                     .foregroundStyle(.secondary)
                     .font(.subheadline)
             }
         } else {
             Section("Your Foods") {
+                Button {
+                    showAddSavedFood = true
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Add New Food")
+                    }
+                }
+                
                 ForEach(filteredSavedFoods) { food in
                     Button {
                         itemToLog = LoggableItem(
@@ -396,25 +403,32 @@ struct FoodLoggingHubView: View {
     
     @ViewBuilder
     private var recipesSection: some View {
-        Section {
-            Button {
-                showRecipeBuilder = true
-            } label: {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                    Text("Create New Recipe")
-                }
-            }
-        }
-        
         if filteredRecipes.isEmpty {
             Section {
+                Button {
+                    showRecipeBuilder = true
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Create New Recipe")
+                    }
+                }
+                
                 Text(searchText.isEmpty ? "No recipes saved yet." : "No matching recipes.")
                     .foregroundStyle(.secondary)
                     .font(.subheadline)
             }
         } else {
             Section("Your Recipes") {
+                Button {
+                    showRecipeBuilder = true
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Create New Recipe")
+                    }
+                }
+                
                 ForEach(filteredRecipes) { recipe in
                     Button {
                         itemToLog = LoggableItem(
