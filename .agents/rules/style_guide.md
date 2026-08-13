@@ -1,37 +1,35 @@
 # QuickCalories UI & Visual Style Guide
 
-This style guide outlines the layout, typography, colors, and styling rules for daily meal logs and lists to maintain visual cohesion across the application.
+This style guide outlines the layout, typography, colors, and styling rules for daily meal logs and list layouts to maintain visual cohesion across the application.
 
 ---
 
-## 1. Core Card Aesthetic
-All food, recent logs, and recipe items must be rendered as premium, charcoal-colored rounded cards inset from screen edges.
+## 1. Core Card & List Aesthetic
+To prevent layout clutter and keep lists clean, items are grouped into cohesive bounding box card sections using native iOS grouped lists.
 
-* **Card Background**: `Color(red: 0.11, green: 0.11, blue: 0.12)` (Charcoal gray)
-* **Corner Radius**: `14` (Soft rounded edges)
-* **Card Shadow**: `shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1.5)`
-* **Margins & Insets**:
-  * **Card Row Insets** (within List): `.listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))`
-  * **Card Internal Padding**: `.padding(.vertical, 12).padding(.horizontal, 16)`
-  * **List Background & Separators**: Always hide borders and separators on lists containing these cards:
-    ```swift
-    .listStyle(.plain)
-    .listRowBackground(Color.clear)
-    .listRowSeparator(.hidden)
-    ```
+* **List Layouts**:
+  * Use standard grouped lists (`Form` or `.listStyle(.insetGrouped)`) for all logging hub lists, edit screens, and builders.
+  * Avoid drawing individual card borders or custom backgrounds per cell. Instead, let them share the section's unified bounding box background.
+  * Separate cells inside each section using native horizontal line dividers.
+* **Dashboard Feed Exception**:
+  * On the dashboard main feed, elements are rendered as individual, floating charcoal-colored cards with:
+    * Background: `Color(red: 0.11, green: 0.11, blue: 0.12)`
+    * Corner Radius: `14`
+    * Padding: `.vertical, 12`, `.horizontal, 16`
+    * Row Height Budget: `115pt`
 
 ---
 
 ## 2. Typography & Contrast Hierarchy
-To ensure content is readable and not cluttered, always use the following font sizes and weights:
+Ensure clean readability in lists and builders by maintaining the following font styles:
 
-| Element | Font Style | Color | Visual Spacing / Details |
+| Element | Font Style | Color | Details |
 | :--- | :--- | :--- | :--- |
-| **Primary Title (Food Name)** | `.font(.headline)` | `.primary` (white) | Top item; bold by default. |
-| **Secondary Stats (Calories)** | `.font(.subheadline).fontWeight(.semibold)` | `.secondary` (gray) | Flame icon (`Image(systemName: "flame.fill")`) in `.orange` (caption font size). |
-| **Tertiary Stats (Macros)** | `.font(.footnote)` | `.secondary` (gray) | Custom macro circle indicators (size 6) aligned in an HStack. |
-| **Time & Disclosures** | `.font(.footnote)` | `.secondary` (gray) | Positioned on the right edge of the card. |
-| **Helper Subtitles / Recipe ingredients** | `.font(.caption2).italic()` | `.secondary` (gray) | Shows ingredient summary below macro indicators. |
+| **Primary Title (Food Name)** | `.font(.headline)` | `.primary` | Bold weight. |
+| **Secondary Stats (Calories)** | `.font(.subheadline).fontWeight(.semibold)` | `.secondary` (gray) | Flame icon (`Image(systemName: "flame.fill")`) in `.orange`. |
+| **Tertiary Stats (Macros)** | `.font(.footnote)` | `.secondary` (gray) | Custom macro circle indicators (size 6) in an HStack. |
+| **Time & Disclosures** | `.font(.footnote)` | `.secondary` (gray) | Aligned to the right edge of the card row. |
+| **Helper Subtitles / Recipe ingredients** | `.font(.caption2).italic()` | `.secondary` (gray) | Shows ingredient summaries below indicators. |
 
 ---
 
@@ -50,6 +48,7 @@ Avoid wide margins between rows and content stacks:
 * **VStack Internal Spacing**: `4` (between Title, Calories, and Macros)
 * **Macro HStack spacing**: `12` (between Protein, Carbs, and Fat groups)
 * **HStack Macro internal spacing**: `3` (between colored dot and gram text)
+* **Row vertical spacing padding**: `.padding(.vertical, 4)` for standard list row cards to keep cells spacious but slim.
 
 ---
 

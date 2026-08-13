@@ -152,13 +152,13 @@ struct FoodLoggingHubView: View {
                             Button {
                                 showAILog = true
                             } label: {
-                                HStack(spacing: 16) {
+                                HStack(spacing: 12) {
                                     Image(systemName: "sparkles")
                                         .foregroundStyle(.purple)
-                                        .font(.title2)
+                                        .font(.title3)
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("Ask AI to log \"\(searchText)\"")
-                                            .font(.system(size: 16, weight: .bold))
+                                            .font(.headline)
                                             .foregroundStyle(.purple)
                                         Text("Gemini will estimate macros automatically")
                                             .font(.caption)
@@ -166,22 +166,11 @@ struct FoodLoggingHubView: View {
                                     }
                                     Spacer()
                                     Image(systemName: "chevron.right")
-                                        .font(.subheadline)
+                                        .font(.footnote)
                                         .foregroundStyle(.secondary)
                                 }
-                                .padding(16)
-                                .background(Color.purple.opacity(0.1))
-                                .cornerRadius(16)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Color.purple.opacity(0.3), lineWidth: 1)
-                                )
                             }
-                            .buttonStyle(.plain)
                         }
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
                     }
                     
                     if activeTab == 0 {
@@ -192,7 +181,7 @@ struct FoodLoggingHubView: View {
                         recipesSection
                     }
                 }
-                .listStyle(.plain)
+                .listStyle(.insetGrouped)
                 
                 // Bottom Bar Actions
                 HStack(spacing: 16) {
@@ -331,10 +320,6 @@ struct FoodLoggingHubView: View {
                             recipeDescription: item.recipeDescription
                         )
                     }
-                    .buttonStyle(.plain)
-                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
                 }
             }
         }
@@ -347,21 +332,11 @@ struct FoodLoggingHubView: View {
                 showAddSavedFood = true
             } label: {
                 HStack {
-                    Spacer()
                     Image(systemName: "plus.circle.fill")
                     Text("Add New Food")
-                    Spacer()
                 }
-                .padding()
-                .background(Color.accentColor.opacity(0.15))
-                .foregroundStyle(Color.accentColor)
-                .cornerRadius(12)
             }
-            .buttonStyle(.plain)
         }
-        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
         
         if filteredSavedFoods.isEmpty {
             Section {
@@ -390,10 +365,6 @@ struct FoodLoggingHubView: View {
                             servingInfo: "\(String(format: "%.1f", food.servingSize)) \(food.unit)"
                         )
                     }
-                    .buttonStyle(.plain)
-                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
                             modelContext.delete(food)
@@ -428,21 +399,11 @@ struct FoodLoggingHubView: View {
                 showRecipeBuilder = true
             } label: {
                 HStack {
-                    Spacer()
                     Image(systemName: "plus.circle.fill")
                     Text("Create New Recipe")
-                    Spacer()
                 }
-                .padding()
-                .background(Color.accentColor.opacity(0.15))
-                .foregroundStyle(Color.accentColor)
-                .cornerRadius(12)
             }
-            .buttonStyle(.plain)
         }
-        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
         
         if filteredRecipes.isEmpty {
             Section {
@@ -473,10 +434,6 @@ struct FoodLoggingHubView: View {
                             recipeDescription: recipe.ingredientListSummary
                         )
                     }
-                    .buttonStyle(.plain)
-                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
                             modelContext.delete(recipe)
@@ -725,10 +682,7 @@ struct FoodHubCard: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
-        .background(Color(red: 0.11, green: 0.11, blue: 0.12))
-        .cornerRadius(14)
+        .padding(.vertical, 4)
         .contentShape(Rectangle()) // makes entire card tappable
     }
 }
