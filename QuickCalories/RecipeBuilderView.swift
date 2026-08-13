@@ -19,6 +19,7 @@ struct RecipeBuilderView: View {
     @State private var recipeName: String
     @State private var selectedIngredients: [RecipeIngredientState]
     @State private var showIngredientSelector = false
+    @FocusState private var focusedIngredientId: UUID?
     
     init(recipeToEdit: Recipe? = nil) {
         self.recipeToEdit = recipeToEdit
@@ -74,67 +75,127 @@ struct RecipeBuilderView: View {
     
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Recipe Details") {
+            List {
+                Section(recipeName.isEmpty ? "Recipe Name" : recipeName) {
                     TextField("Recipe Name (e.g. Morning Smoothie)", text: $recipeName)
                         .autocorrectionDisabled()
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 16)
+                        .background(Color(red: 0.11, green: 0.11, blue: 0.12))
+                        .cornerRadius(14)
                 }
+                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
                 
-                Section {
+                Section("Ingredients") {
                     if selectedIngredients.isEmpty {
                         Text("No ingredients added yet. Tap below to add from your Saved Foods.")
                             .foregroundStyle(.secondary)
                             .font(.subheadline)
                             .padding(.vertical, 8)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                     } else {
                         ForEach($selectedIngredients) { $ingredient in
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text(ingredient.foodName)
-                                        .font(.headline)
-                                    Spacer()
-                                    Button(role: .destructive) {
-                                        selectedIngredients.removeAll { $0.id == ingredient.id }
-                                    } label: {
-                                        Image(systemName: "trash")
+                            HStack(spacing: 16) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text(ingredient.foodName)
+                                            .font(.headline)
+                                            .foregroundStyle(.primary)
+                                        Spacer()
+                                        Button(role: .destructive) {
+                                            selectedIngredients.removeAll { $0.id == ingredient.id }
+                                        } label: {
+                                            Image(systemName: "trash")
+                                                .font(.subheadline)
+                                                .foregroundStyle(.red)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    
+                                    HStack {
+                                        Text("Servings (\(ingredient.unit)):")
                                             .font(.subheadline)
-                                            .foregroundStyle(.red)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                                
-                                HStack {
-                                    Text("Servings (\(ingredient.unit)):")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                    
-                                    Spacer()
-                                    
-                                    HStack(spacing: 8) {
-                                        TextField("1.0", value: $ingredient.servings, format: .number)
-                                            .keyboardType(.decimalPad)
-                                            .multilineTextAlignment(.center)
-                                            .frame(width: 50)
-                                            .padding(.vertical, 4)
-                                            .padding(.horizontal, 8)
-                                            .background(Color.accentColor.opacity(0.1))
-                                            .cornerRadius(6)
+                                            .foregroundStyle(.secondary)
                                         
-                                        Stepper("Adjust", value: $ingredient.servings, in: 0.1...10.0, step: 0.1)
-                                            .labelsHidden()
+                                        Spacer()
+                                        
+                                        HStack(spacing: 8) {
+                                            TextField("1.0", value: $ingredient.servings, format: .number)
+                                                .keyboardType(.decimalPad)
+                                                .multilineTextAlignment(.center)
+                                                .frame(width: 50)
+                                                .padding(.vertical, 4)
+                                                .padding(.horizontal, 8)
+                                                .background(Color.accentColor.opacity(0.1))
+                                                .cornerRadius(6)
+                                                .focused($focusedIngredientId, equals: ingredient.id)
+                                            
+                                            Stepper("Adjust", value: $ingredient.servings, in: 0.1...10.0, step: 0.1)
+                                                .labelsHidden()
+                                        }
+                                    }
+                                    
+                                    // Ingredient nutrition preview
+                                    let cals = Int((Double(ingredient.calories) * ingredient.servings).rounded())
+                                    let prot = ingredient.protein * ingredient.servings
+                                    let carb = ingredient.carbs * ingredient.servings
+                                    let fatVal = ingredient.fat * ingredient.servings
+                                    
+                                    HStack(spacing: 12) {
+                                        // Calories
+                                        HStack(spacing: 3) {
+                                            Image(systemName: "flame.fill")
+                                                .font(.caption)
+                                                .foregroundStyle(.orange)
+                                            Text("\(cals) cal")
+                                                .font(.subheadline)
+                                                .fontWeight(.semibold)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        
+                                        // Protein
+                                        HStack(spacing: 3) {
+                                            Image(systemName: "circle.fill")
+                                                .font(.system(size: 6))
+                                                .foregroundStyle(.red)
+                                            Text("\(Int(prot))g")
+                                                .font(.footnote)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        
+                                        // Carbs
+                                        HStack(spacing: 3) {
+                                            Image(systemName: "circle.fill")
+                                                .font(.system(size: 6))
+                                                .foregroundStyle(.blue)
+                                            Text("\(Int(carb))g")
+                                                .font(.footnote)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        
+                                        // Fat
+                                        HStack(spacing: 3) {
+                                            Image(systemName: "circle.fill")
+                                                .font(.system(size: 6))
+                                                .foregroundStyle(.yellow)
+                                            Text("\(Int(fatVal))g")
+                                                .font(.footnote)
+                                                .foregroundStyle(.secondary)
+                                        }
                                     }
                                 }
-                                
-                                // Ingredient nutrition preview
-                                let cals = Int((Double(ingredient.calories) * ingredient.servings).rounded())
-                                let prot = ingredient.protein * ingredient.servings
-                                let carb = ingredient.carbs * ingredient.servings
-                                let fatVal = ingredient.fat * ingredient.servings
-                                Text("🔥 \(cals) cal  •  🔴 \(prot, specifier: "%.1f")g P  •  🔵 \(carb, specifier: "%.1f")g C  •  🟡 \(fatVal, specifier: "%.1f")g F")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
                             }
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 16)
+                            .background(Color(red: 0.11, green: 0.11, blue: 0.12))
+                            .cornerRadius(14)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                         }
                     }
                     
@@ -142,22 +203,29 @@ struct RecipeBuilderView: View {
                         showIngredientSelector = true
                     } label: {
                         HStack {
+                            Spacer()
                             Image(systemName: "plus.circle.fill")
                             Text("Add Ingredient")
+                            Spacer()
                         }
+                        .padding()
+                        .background(Color.accentColor.opacity(0.15))
+                        .foregroundStyle(Color.accentColor)
+                        .cornerRadius(12)
                     }
-                } header: {
-                    Text("Ingredients")
-                } footer: {
-                    Text("Ingredients are selected from your existing Saved Foods. You can adjust the serving size of each ingredient individually.")
+                    .buttonStyle(.plain)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 }
                 
                 if !selectedIngredients.isEmpty {
-                    Section("Total recipe nutrition") {
+                    Section {
                         VStack(spacing: 16) {
                             HStack {
                                 Image(systemName: "flame.fill")
                                     .foregroundStyle(.orange)
+                                    .font(.title3)
                                 Text("Total Calories")
                                     .font(.headline)
                                 Spacer()
@@ -174,10 +242,16 @@ struct RecipeBuilderView: View {
                                 MacroCircle(name: "Fat", value: totalFat, color: .yellow)
                             }
                         }
-                        .padding(.vertical, 8)
+                        .padding(16)
+                        .background(Color(red: 0.11, green: 0.11, blue: 0.12))
+                        .cornerRadius(14)
                     }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 }
             }
+            .listStyle(.plain)
             .navigationTitle(recipeToEdit == nil ? "Create Recipe" : "Edit Recipe")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -192,6 +266,15 @@ struct RecipeBuilderView: View {
                         saveRecipe()
                     }
                     .disabled(!isValid)
+                }
+                
+                if focusedIngredientId != nil {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Done") {
+                            focusedIngredientId = nil
+                        }
+                    }
                 }
             }
             .sheet(isPresented: $showIngredientSelector) {
@@ -265,21 +348,28 @@ struct IngredientSelectorView: View {
                             .multilineTextAlignment(.center)
                     }
                 } else {
-                    List(savedFoods) { food in
-                        Button {
-                            onSelect(food)
-                            dismiss()
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(food.foodName)
-                                    .font(.headline)
-                                    .foregroundStyle(.primary)
-                                Text("🔥 \(food.calories) cal  •  🔴 \(food.protein, specifier: "%.1f")g P  •  🔵 \(food.carbs, specifier: "%.1f")g C  •  🟡 \(food.fat, specifier: "%.1f")g F")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                    List {
+                        ForEach(savedFoods) { food in
+                            Button {
+                                onSelect(food)
+                                dismiss()
+                            } label: {
+                                FoodHubCard(
+                                    name: food.foodName,
+                                    calories: food.calories,
+                                    protein: food.protein,
+                                    carbs: food.carbs,
+                                    fat: food.fat,
+                                    servingInfo: "\(String(format: "%.1f", food.servingSize)) \(food.unit)"
+                                )
                             }
+                            .buttonStyle(.plain)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                         }
                     }
+                    .listStyle(.plain)
                 }
             }
             .navigationTitle("Select Food")
