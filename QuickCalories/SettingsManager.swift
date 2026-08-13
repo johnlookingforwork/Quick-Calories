@@ -154,6 +154,18 @@ final class SettingsManager {
         }
     }
     
+    var isManualTarget: Bool = false {
+        didSet {
+            UserDefaults.standard.set(isManualTarget, forKey: "isManualTarget")
+        }
+    }
+    
+    var pendingTargetUpdateAlert: String? = nil {
+        didSet {
+            UserDefaults.standard.set(pendingTargetUpdateAlert, forKey: "pendingTargetUpdateAlert")
+        }
+    }
+    
     var macroSplitType: String = MacroSplit.balanced.rawValue {
         didSet {
             UserDefaults.standard.set(macroSplitType, forKey: "macroSplitType")
@@ -235,6 +247,36 @@ final class SettingsManager {
         if self.metabolicWindowDays == 0 {
             self.metabolicWindowDays = 30
         }
+        self.isManualTarget = UserDefaults.standard.bool(forKey: "isManualTarget")
+        self.pendingTargetUpdateAlert = UserDefaults.standard.string(forKey: "pendingTargetUpdateAlert")
+        
+        // Migration: Detect if they already had a manual target before this update
+        if !UserDefaults.standard.bool(forKey: "hasConfiguredManualTargetFlag") {
+            let gender = Gender(rawValue: self.userGender) ?? .notSpecified
+            let activity = ActivityLevel(rawValue: self.activityLevel) ?? .moderate
+            let goal = Goal(rawValue: self.goalType) ?? .maintain
+            
+            if self.userAge > 0 && self.userWeight > 0 && self.userHeight > 0 {
+                let calculated = CalorieCalculator.calculateDailyTarget(
+                    weight: self.userWeight,
+                    height: self.userHeight,
+                    age: self.userAge,
+                    gender: gender,
+                    activityLevel: activity,
+                    goal: goal
+                )
+                // If their current target does not match BMR, mark it as manual!
+                if self.dailyCalorieTarget != calculated {
+                    self.isManualTarget = true
+                }
+            } else {
+                // If profile is incomplete but they have a target, it's manual!
+                if self.dailyCalorieTarget != 2000 {
+                    self.isManualTarget = true
+                }
+            }
+            UserDefaults.standard.set(true, forKey: "hasConfiguredManualTargetFlag")
+        }
         
         // Migration: If user has custom targets but hasn't "completed onboarding",
         // mark them as having completed it to skip onboarding for existing users
@@ -281,9 +323,11 @@ final class SettingsManager {
               let activity = ActivityLevel(rawValue: activityLevel),
               let goal = Goal(rawValue: goalType) else { return }
         
-        // Calculate new calorie target ONLY if not using adaptive target
-        if !useAdaptiveCalorieTarget {
-            dailyCalorieTarget = CalorieCalculator.calculateDailyTarget(
+        let oldTarget = dailyCalorieTarget
+        
+        // Calculate new calorie target ONLY if not using adaptive target and target is not manual
+        if !useAdaptiveCalorieTarget && !isManualTarget {
+            let newTarget = CalorieCalculator.calculateDailyTarget(
                 weight: userWeight,
                 height: userHeight,
                 age: userAge,
@@ -291,6 +335,11 @@ final class SettingsManager {
                 activityLevel: activity,
                 goal: goal
             )
+            if newTarget != oldTarget {
+                dailyCalorieTarget = newTarget
+                let changeType = newTarget > oldTarget ? "increase" : "decrease"
+                pendingTargetUpdateAlert = "From \(oldTarget) to \(newTarget) due to changes in weight \(changeType)"
+            }
         }
         
         recalculateMacrosOnly()
@@ -383,12 +432,18 @@ extension SettingsManager {
                 
                 let suggested = max(1200, Int(constrainedTDEE - targetDailyDeficit))
                 
+                let oldTarget = self.dailyCalorieTarget
                 DispatchQueue.main.async {
                     if suggested != self.dailyCalorieTarget || self.lastTargetUpdateTime == nil {
                         self.dailyCalorieTarget = suggested
                         self.recalculateMacrosOnly()
                         self.lastTargetUpdateTime = Date()
                         self.saveOrUpdateTodayTargetLog()
+                        
+                        if oldTarget > 0 && oldTarget != suggested {
+                            let changeType = suggested > oldTarget ? "increase" : "decrease"
+                            self.pendingTargetUpdateAlert = "From \(oldTarget) to \(suggested) due to changes in weight \(changeType)"
+                        }
                     }
                 }
             }

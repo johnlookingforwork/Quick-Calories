@@ -22,10 +22,9 @@ class HealthKitManager: ObservableObject {
     
     func checkAuthorizationStatus() {
         guard HKHealthStore.isHealthDataAvailable() else { return }
-        let weightType = HKObjectType.quantityType(forIdentifier: .bodyMass)!
-        let status = healthStore.authorizationStatus(for: weightType)
+        let requested = UserDefaults.standard.bool(forKey: "hasRequestedHealthKitPermission")
         DispatchQueue.main.async {
-            self.isAuthorized = status == .sharingAuthorized
+            self.isAuthorized = requested
         }
     }
     
@@ -39,8 +38,9 @@ class HealthKitManager: ObservableObject {
         
         healthStore.requestAuthorization(toShare: nil, read: [weightType]) { [weak self] success, _ in
             DispatchQueue.main.async {
-                self?.isAuthorized = success
                 if success {
+                    UserDefaults.standard.set(true, forKey: "hasRequestedHealthKitPermission")
+                    self?.isAuthorized = true
                     self?.fetchLatestWeight { _ in }
                 }
                 completion(success)

@@ -274,37 +274,37 @@ struct StatsView: View {
     }
     
     private var hasTargetHistory: Bool {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let logsCount = allTargetLogs.filter { log in
-            let daysAgo = calendar.dateComponents([.day], from: log.date, to: today).day ?? 999
-            return daysAgo >= 0 && daysAgo < 30
-        }.count
-        return logsCount >= 2
+        !allTargetLogs.isEmpty
     }
     
     private var targetChartData: [TargetChartPoint] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         
-        let logs = allTargetLogs.filter { log in
-            let daysAgo = calendar.dateComponents([.day], from: log.date, to: today).day ?? 999
-            return daysAgo >= 0 && daysAgo < 30
+        var points: [TargetChartPoint] = []
+        
+        // Sort logs by date to find earliest matching points
+        let sortedLogs = allTargetLogs.sorted(by: { $0.date < $1.date })
+        let earliestLog = sortedLogs.first
+        
+        for offset in (0..<30).reversed() {
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
+            let targetDay = calendar.startOfDay(for: date)
+            
+            if let match = sortedLogs.first(where: { calendar.isDate($0.date, inSameDayAs: targetDay) }) {
+                points.append(TargetChartPoint(date: targetDay, targetCalories: match.calories))
+            } else if let earliest = earliestLog, targetDay < earliest.date {
+                // If the day is before our earliest target log, use the earliest log's values
+                points.append(TargetChartPoint(date: targetDay, targetCalories: earliest.calories))
+            } else {
+                // Otherwise look backwards for the nearest prior log, or fall back to settings
+                let priorLog = sortedLogs.last(where: { $0.date < targetDay })
+                let fallbackTarget = priorLog?.calories ?? earliestLog?.calories ?? settings.dailyCalorieTarget
+                points.append(TargetChartPoint(date: targetDay, targetCalories: fallbackTarget))
+            }
         }
         
-        if logs.count >= 2 {
-            return logs.map { TargetChartPoint(date: $0.date, targetCalories: $0.calories) }
-        } else {
-            // Flat preview fallback using current target
-            let currentTarget = settings.dailyCalorieTarget
-            var points: [TargetChartPoint] = []
-            for offset in (0..<7).reversed() {
-                if let date = calendar.date(byAdding: .day, value: -offset, to: today) {
-                    points.append(TargetChartPoint(date: date, targetCalories: currentTarget))
-                }
-            }
-            return points
-        }
+        return points
     }
     
     private var targetChartDomain: ClosedRange<Double> {

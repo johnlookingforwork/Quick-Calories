@@ -24,8 +24,10 @@ struct DashboardView: View {
     @State private var selectedEntry: FoodEntry?
     @State private var selectedWorkout: WorkoutEntry?
     @State private var navigateToSettings = false
+    @State private var showingTargetUpdateAlert = false
+    @State private var targetUpdateAlertMessage = ""
 
-    private var settings = SettingsManager.shared
+    @State private var settings = SettingsManager.shared
     private let calendar = Calendar.current
     
     private var isViewingToday: Bool {
@@ -57,9 +59,20 @@ struct DashboardView: View {
     
     private var displayDateTargets: (calories: Int, protein: Double, carbs: Double, fat: Double) {
         let targetDate = calendar.startOfDay(for: selectedDate)
+        
+        // 1. Try to find a log matching the selected date
         if let log = allTargetLogs.first(where: { calendar.isDate($0.date, inSameDayAs: targetDate) }) {
             return (calories: log.calories, protein: log.protein, carbs: log.carbs, fat: log.fat)
         }
+        
+        // 2. Fallback to the earliest log if the selected date is BEFORE the earliest log
+        if let earliestLog = allTargetLogs.sorted(by: { $0.date < $1.date }).first {
+            if targetDate < earliestLog.date {
+                return (calories: earliestLog.calories, protein: earliestLog.protein, carbs: earliestLog.carbs, fat: earliestLog.fat)
+            }
+        }
+        
+        // 3. Fallback to active settings targets
         return (
             calories: settings.dailyCalorieTarget,
             protein: settings.proteinTarget,
@@ -353,6 +366,25 @@ struct DashboardView: View {
             .task {
                 SettingsManager.shared.updateAdaptiveCalorieTarget(allEntries: allEntries)
                 DailyTargetLog.saveOrUpdateTodayTargetLog(modelContext: modelContext)
+            }
+            .alert("Calorie Target Updated", isPresented: $showingTargetUpdateAlert) {
+                Button("Got it", role: .cancel) {
+                    settings.pendingTargetUpdateAlert = nil
+                }
+            } message: {
+                Text(targetUpdateAlertMessage)
+            }
+            .onAppear {
+                if let message = settings.pendingTargetUpdateAlert {
+                    targetUpdateAlertMessage = message
+                    showingTargetUpdateAlert = true
+                }
+            }
+            .onChange(of: settings.pendingTargetUpdateAlert) { _, newValue in
+                if let message = newValue {
+                    targetUpdateAlertMessage = message
+                    showingTargetUpdateAlert = true
+                }
             }
         }
     }

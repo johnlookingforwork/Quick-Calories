@@ -1293,6 +1293,7 @@ struct CalorieTargetSetupView: View {
         if setupMode == .guided {
             dailyCalorieTarget = finalCalories
             settings.dailyCalorieTarget = finalCalories
+            settings.isManualTarget = false
             
             // Save profile data
             if let ageInt = Int(age), let weightDouble = Double(weight) {
@@ -1343,6 +1344,7 @@ struct CalorieTargetSetupView: View {
         } else {
             dailyCalorieTarget = finalCalories
             settings.dailyCalorieTarget = finalCalories
+            settings.isManualTarget = true
             
             let macros = calculateFinalMacros(calories: finalCalories)
             proteinTarget = macros.protein
