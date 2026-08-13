@@ -16,6 +16,8 @@ struct QuickCaloriesApp: App {
             SavedFood.self,
             WorkoutEntry.self,
             DailyTargetLog.self,
+            Recipe.self,
+            RecipeIngredient.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

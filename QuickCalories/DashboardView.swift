@@ -15,11 +15,8 @@ struct DashboardView: View {
     @Query private var allTargetLogs: [DailyTargetLog]
     @State private var selectedDate: Date = Calendar.current.startOfDay(for: Date())
     @State private var showPaywall = false
-    @State private var showAILog = false
-    @State private var showManualAdd = false
-    @State private var showSavedFoods = false
+    @State private var showLoggingHub = false
     @State private var showWorkoutLog = false
-    @State private var showRecentFoods = false
     @State private var showDatePicker = false
     @State private var selectedEntry: FoodEntry?
     @State private var selectedWorkout: WorkoutEntry?
@@ -163,13 +160,14 @@ struct DashboardView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Text(sectionTitle)
-                                .font(.headline)
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundStyle(.primary)
                             
                             Spacer()
                             
                             if !displayDateEntries.isEmpty {
                                 Text("Swipe to edit or delete")
-                                    .font(.caption2)
+                                    .font(.system(size: 14))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -185,7 +183,7 @@ struct DashboardView: View {
                             List {
                                 ForEach(displayDateEntries) { entry in
                                     FoodEntryRow(entry: entry)
-                                        .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
+                                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                         .listRowBackground(Color.clear)
                                         .listRowSeparator(.hidden)
                                         .onTapGesture {
@@ -209,27 +207,38 @@ struct DashboardView: View {
                                 }
                             }
                             .listStyle(.plain)
-                            .frame(height: CGFloat(displayDateEntries.count) * 142)
+                            .frame(height: CGFloat(displayDateEntries.count) * 115)
                             .scrollDisabled(true)
                         }
                     }
                     
                     // Workouts Section
-                    if !displayDateWorkouts.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text(workoutSectionTitle)
-                                    .font(.headline)
-                                
-                                Spacer()
-                                
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text(workoutSectionTitle)
+                                .font(.headline)
+                            
+                            Spacer()
+                            
+                            if !displayDateWorkouts.isEmpty {
                                 Text("+\(displayDateWorkoutCalories) cal")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                                     .foregroundStyle(.green)
+                                    .padding(.trailing, 8)
                             }
-                            .padding(.horizontal)
                             
+                            Button {
+                                showWorkoutLog = true
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(.green)
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        if !displayDateWorkouts.isEmpty {
                             List {
                                 ForEach(displayDateWorkouts) { workout in
                                     WorkoutEntryRow(workout: workout)
@@ -259,6 +268,17 @@ struct DashboardView: View {
                             .listStyle(.plain)
                             .frame(height: CGFloat(displayDateWorkouts.count) * 100)
                             .scrollDisabled(true)
+                        } else {
+                            HStack {
+                                Text("No workouts logged for this day.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                            }
+                            .padding()
+                            .background(Color(uiColor: .secondarySystemBackground))
+                            .cornerRadius(12)
+                            .padding(.horizontal)
                         }
                     }
                 }
@@ -299,19 +319,8 @@ struct DashboardView: View {
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
             }
-            .sheet(isPresented: $showAILog) {
-                AILogView(date: selectedDate)
-            }
-            .sheet(isPresented: $showManualAdd) {
-                ManualAddView(date: selectedDate)
-            }
-            .sheet(isPresented: $showRecentFoods) {
-                RecentFoodsView(date: selectedDate)
-            }
-            .sheet(isPresented: $showSavedFoods) {
-                NavigationStack {
-                    SavedFoodsView(logDate: selectedDate)
-                }
+            .sheet(isPresented: $showLoggingHub) {
+                FoodLoggingHubView(date: selectedDate)
             }
             .sheet(isPresented: $showWorkoutLog) {
                 LogWorkoutView(date: selectedDate)
@@ -323,37 +332,9 @@ struct DashboardView: View {
                 DatePickerPopup(selectedDate: $selectedDate)
             }
             .overlay(alignment: .bottomTrailing) {
-                // Floating Action Button with Menu
-                Menu {
-                    Button {
-                        showAILog = true
-                    } label: {
-                        Label("Log with AI", systemImage: "sparkles")
-                    }
-                    
-                    Button {
-                        showManualAdd = true
-                    } label: {
-                        Label("Manual Add", systemImage: "plus.circle")
-                    }
-                    
-                    Button {
-                        showRecentFoods = true
-                    } label: {
-                        Label("Recently Added", systemImage: "clock.arrow.circlepath")
-                    }
-
-                    Button {
-                        showSavedFoods = true
-                    } label: {
-                        Label("Saved Foods", systemImage: "book")
-                    }
-                    
-                    Button {
-                        showWorkoutLog = true
-                    } label: {
-                        Label("Log Workout", systemImage: "figure.run")
-                    }
+                // Floating Action Button directly launching the logging hub
+                Button {
+                    showLoggingHub = true
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 56))
@@ -676,13 +657,11 @@ struct FoodEntryRow: View {
     let entry: FoodEntry
     
     var body: some View {
-        HStack(spacing: 12) {
-            
-            
-            VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(entry.foodName)
-                    .font(.body)
-                    .fontWeight(.semibold)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
                 
                 // Calories with flame icon
                 HStack(spacing: 4) {
@@ -691,10 +670,11 @@ struct FoodEntryRow: View {
                         .foregroundStyle(.orange)
                     Text("\(entry.calories) cal")
                         .font(.subheadline)
-                        .fontWeight(.medium)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
                 }
                 
-                // Macros with icons
+                // Macros with dots
                 HStack(spacing: 12) {
                     // Protein
                     HStack(spacing: 3) {
@@ -702,7 +682,7 @@ struct FoodEntryRow: View {
                             .font(.system(size: 6))
                             .foregroundStyle(.red)
                         Text("\(Int(entry.protein))g")
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                     
@@ -712,7 +692,7 @@ struct FoodEntryRow: View {
                             .font(.system(size: 6))
                             .foregroundStyle(.blue)
                         Text("\(Int(entry.carbs))g")
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                     
@@ -722,40 +702,45 @@ struct FoodEntryRow: View {
                             .font(.system(size: 6))
                             .foregroundStyle(.yellow)
                         Text("\(Int(entry.fat))g")
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                 }
                 
+                if let desc = entry.recipeDescription, !desc.isEmpty {
+                    Text(desc)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .italic()
+                }
+                
                 if entry.servings != 1.0 {
-                    HStack(spacing: 3) {
-                        Image(systemName: "number.circle.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Text("\(entry.servings, specifier: "%.1f") servings")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text("\(entry.servings, specifier: "%.1f") servings")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
             
             Spacer()
             
-            // Time on the right
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .trailing, spacing: 8) {
                 Text(entry.timestamp, style: .time)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                 
+                Spacer()
+                
                 Image(systemName: "chevron.right")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .font(.footnote)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding()
-        .background(Color(uiColor: .secondarySystemBackground))
-        .cornerRadius(12)
-        .padding(.horizontal)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background(Color(red: 0.11, green: 0.11, blue: 0.12))
+        .cornerRadius(14)
+        .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1.5)
     }
 }
 
@@ -803,308 +788,6 @@ struct WorkoutEntryRow: View {
         .background(Color.green.opacity(0.1))
         .cornerRadius(12)
         .padding(.horizontal)
-    }
-}
-
-struct RecentFoodsView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
-    @Query(sort: \FoodEntry.timestamp, order: .reverse) private var allEntries: [FoodEntry]
-
-    let date: Date
-    @State private var foodToLog: FoodEntry?
-
-    private var recentUniqueFoods: [FoodEntry] {
-        var seen = Set<String>()
-        var result: [FoodEntry] = []
-        for entry in allEntries {
-            let key = entry.foodName.lowercased()
-            if !seen.contains(key) {
-                seen.insert(key)
-                result.append(entry)
-                if result.count >= 25 { break }
-            }
-        }
-        return result
-    }
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if recentUniqueFoods.isEmpty {
-                    ContentUnavailableView {
-                        Label("No Recent Foods", systemImage: "clock")
-                    } description: {
-                        Text("Foods you've logged will appear here for quick re-logging.")
-                            .multilineTextAlignment(.center)
-                    }
-                } else {
-                    List {
-                        ForEach(recentUniqueFoods) { food in
-                            RecentFoodRow(food: food)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    foodToLog = food
-                                }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) {
-                                        deleteEntry(food)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Recently Added")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-                ToolbarItem(placement: .principal) {
-                    VStack(spacing: 2) {
-                        Text("Recently Added")
-                            .font(.headline)
-                        if !recentUniqueFoods.isEmpty {
-                            Text("Tap to re-log")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-            .sheet(item: $foodToLog) { food in
-                LogRecentFoodView(food: food, date: date)
-            }
-        }
-    }
-
-    private func deleteEntry(_ entry: FoodEntry) {
-        withAnimation {
-            modelContext.delete(entry)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        }
-    }
-}
-
-struct RecentFoodRow: View {
-    let food: FoodEntry
-
-    private var perServing: (calories: Int, protein: Double, carbs: Double, fat: Double) {
-        let s = food.servings > 0 ? food.servings : 1.0
-        return (
-            calories: Int((Double(food.calories) / s).rounded()),
-            protein: food.protein / s,
-            carbs: food.carbs / s,
-            fat: food.fat / s
-        )
-    }
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(food.foodName)
-                    .font(.body)
-                    .fontWeight(.medium)
-
-                HStack(spacing: 4) {
-                    Image(systemName: "flame.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                    Text("\(perServing.calories) cal / serving")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack(spacing: 12) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 6))
-                            .foregroundStyle(.red)
-                        Text("\(Int(perServing.protein))g")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack(spacing: 3) {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 6))
-                            .foregroundStyle(.blue)
-                        Text("\(Int(perServing.carbs))g")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack(spacing: 3) {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 6))
-                            .foregroundStyle(.yellow)
-                        Text("\(Int(perServing.fat))g")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
-            Spacer()
-
-            VStack {
-                Image(systemName: "plus.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(Color.accentColor)
-                Text("Tap to log")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-struct LogRecentFoodView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
-    let food: FoodEntry
-    let date: Date
-
-    @State private var servings = 1.0
-    @FocusState private var isServingsFocused: Bool
-
-    private var perServing: (calories: Int, protein: Double, carbs: Double, fat: Double) {
-        let s = food.servings > 0 ? food.servings : 1.0
-        return (
-            calories: Int((Double(food.calories) / s).rounded()),
-            protein: food.protein / s,
-            carbs: food.carbs / s,
-            fat: food.fat / s
-        )
-    }
-
-    private var calculatedValues: (calories: Int, protein: Double, carbs: Double, fat: Double) {
-        (
-            calories: Int(Double(perServing.calories) * servings),
-            protein: perServing.protein * servings,
-            carbs: perServing.carbs * servings,
-            fat: perServing.fat * servings
-        )
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Food") {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(food.foodName)
-                            .font(.headline)
-                        Text("Last logged: \(food.timestamp.formatted(date: .abbreviated, time: .omitted))")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Section {
-                    HStack {
-                        Text("How many servings?")
-                        Spacer()
-                        HStack(spacing: 8) {
-                            TextField("1.0", value: $servings, format: .number)
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.center)
-                                .frame(width: 60)
-                                .focused($isServingsFocused)
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 12)
-                                .background(Color.accentColor.opacity(0.1))
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .strokeBorder(Color.accentColor.opacity(0.3), lineWidth: 1.5)
-                                )
-                            Image(systemName: "pencil.circle.fill")
-                                .foregroundStyle(.secondary)
-                                .imageScale(.medium)
-                        }
-                        .onTapGesture { isServingsFocused = true }
-                    }
-
-                    HStack {
-                        Spacer()
-                        Stepper("Adjust servings", value: $servings, in: 0.1...20, step: 0.5)
-                            .labelsHidden()
-                    }
-                } header: {
-                    Text("Servings")
-                } footer: {
-                    Text("Tap the number to type, or use +/- buttons to adjust")
-                }
-
-                Section {
-                    VStack(spacing: 16) {
-                        HStack {
-                            Image(systemName: "flame.fill")
-                                .foregroundStyle(.orange)
-                            Text("Calories")
-                                .font(.headline)
-                            Spacer()
-                            Text("\(calculatedValues.calories)")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                        }
-                        Divider()
-                        HStack(spacing: 20) {
-                            MacroCircle(name: "Protein", value: calculatedValues.protein, color: .red)
-                            MacroCircle(name: "Carbs", value: calculatedValues.carbs, color: .blue)
-                            MacroCircle(name: "Fat", value: calculatedValues.fat, color: .yellow)
-                        }
-                    }
-                    .padding(.vertical, 8)
-                } header: {
-                    Text("Total Nutrition")
-                }
-            }
-            .navigationTitle("Log Food")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { isServingsFocused = false }
-                }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Log") { logFood() }
-                }
-            }
-        }
-    }
-
-    private func logFood() {
-        let smartTimestamp = adjustTimestampForDateContext(date)
-        let entry = FoodEntry(
-            foodName: food.foodName,
-            calories: calculatedValues.calories,
-            protein: calculatedValues.protein,
-            carbs: calculatedValues.carbs,
-            fat: calculatedValues.fat,
-            servings: servings,
-            timestamp: smartTimestamp
-        )
-        modelContext.insert(entry)
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        dismiss()
-    }
-
-    private func adjustTimestampForDateContext(_ date: Date) -> Date {
-        let calendar = Calendar.current
-        let now = Date()
-        if calendar.isDateInToday(date) { return now }
-        if date > now { return calendar.startOfDay(for: date) }
-        var components = calendar.dateComponents([.year, .month, .day], from: date)
-        components.hour = 23
-        components.minute = 59
-        components.second = 59
-        return calendar.date(from: components) ?? date
     }
 }
 

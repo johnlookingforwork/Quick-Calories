@@ -26,7 +26,7 @@ struct AILogView: View {
     @Environment(\.modelContext) private var modelContext
     
     let date: Date
-    @State private var inputMode: AIInputMode? = nil // nil means showing selection
+    @State private var inputMode: AIInputMode? = nil
     @State private var foodInput = ""
     @State private var selectedImage: UIImage?
     @State private var photoContext = ""
@@ -40,6 +40,12 @@ struct AILogView: View {
     @State private var parsedNutrition: IdentifiableNutritionData?
     @FocusState private var isTextFieldFocused: Bool
     @FocusState private var isPhotoContextFocused: Bool
+    
+    init(date: Date, initialTextInput: String = "", initialInputMode: AIInputMode? = nil) {
+        self.date = date
+        self._inputMode = State(initialValue: initialInputMode)
+        self._foodInput = State(initialValue: initialTextInput)
+    }
     
     var body: some View {
         NavigationStack {

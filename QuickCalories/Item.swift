@@ -18,8 +18,9 @@ final class FoodEntry {
     var fat: Double
     var servings: Double
     var timestamp: Date
+    var recipeDescription: String? = nil
     
-    init(foodName: String, calories: Int, protein: Double, carbs: Double, fat: Double, servings: Double = 1.0, timestamp: Date = Date()) {
+    init(foodName: String, calories: Int, protein: Double, carbs: Double, fat: Double, servings: Double = 1.0, timestamp: Date = Date(), recipeDescription: String? = nil) {
         self.id = UUID()
         self.foodName = foodName
         self.calories = calories
@@ -28,6 +29,7 @@ final class FoodEntry {
         self.fat = fat
         self.servings = servings
         self.timestamp = timestamp
+        self.recipeDescription = recipeDescription
     }
 }
 @Model
@@ -156,6 +158,66 @@ final class DailyTargetLog {
         } catch {
             print("❌ SwiftData: Error saving/updating today's target log: \(error)")
         }
+    }
+}
+
+@Model
+final class Recipe {
+    var id: UUID
+    var name: String
+    var createdAt: Date
+    
+    @Relationship(deleteRule: .cascade)
+    var ingredients: [RecipeIngredient]
+    
+    init(name: String) {
+        self.id = UUID()
+        self.name = name
+        self.createdAt = Date()
+        self.ingredients = []
+    }
+    
+    var totalCalories: Int {
+        ingredients.reduce(0) { $0 + Int((Double($1.calories) * $1.servings).rounded()) }
+    }
+    
+    var totalProtein: Double {
+        ingredients.reduce(0.0) { $0 + ($1.protein * $1.servings) }
+    }
+    
+    var totalCarbs: Double {
+        ingredients.reduce(0.0) { $0 + ($1.carbs * $1.servings) }
+    }
+    
+    var totalFat: Double {
+        ingredients.reduce(0.0) { $0 + ($1.fat * $1.servings) }
+    }
+    
+    var ingredientListSummary: String {
+        ingredients.map { $0.foodName }.joined(separator: ", ")
+    }
+}
+
+@Model
+final class RecipeIngredient {
+    var id: UUID
+    var foodName: String
+    var servings: Double
+    var calories: Int
+    var protein: Double
+    var carbs: Double
+    var fat: Double
+    var unit: String = "serving"
+    
+    init(foodName: String, servings: Double, calories: Int, protein: Double, carbs: Double, fat: Double, unit: String = "serving") {
+        self.id = UUID()
+        self.foodName = foodName
+        self.servings = servings
+        self.calories = calories
+        self.protein = protein
+        self.carbs = carbs
+        self.fat = fat
+        self.unit = unit
     }
 }
 
