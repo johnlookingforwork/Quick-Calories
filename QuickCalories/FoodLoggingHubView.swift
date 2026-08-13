@@ -27,6 +27,7 @@ struct FoodLoggingHubView: View {
     @State private var itemToLog: LoggableItem? = nil
     @State private var foodToEdit: SavedFood? = nil
     @State private var foodToShare: SavedFood? = nil
+    @State private var recipeToEdit: Recipe? = nil
     @State private var showAILog = false
     @State private var showManualAdd = false
     @State private var showRecipeBuilder = false
@@ -266,6 +267,9 @@ struct FoodLoggingHubView: View {
             .sheet(item: $foodToShare) { food in
                 ShareFoodQRView(food: food)
             }
+            .sheet(item: $recipeToEdit) { recipe in
+                RecipeBuilderView(recipeToEdit: recipe)
+            }
             // Sheet triggers
             .sheet(isPresented: $showAILog) {
                 AILogView(date: date, initialTextInput: searchText, initialInputMode: searchText.isEmpty ? nil : .text)
@@ -481,6 +485,13 @@ struct FoodLoggingHubView: View {
                         }
                     }
                     .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        Button {
+                            recipeToEdit = recipe
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        .tint(.blue)
+                        
                         Button {
                             // Temporary conversion of Recipe to SavedFood for QR code presentation
                             let tempFood = SavedFood(

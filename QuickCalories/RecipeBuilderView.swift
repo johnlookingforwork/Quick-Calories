@@ -14,9 +14,32 @@ struct RecipeBuilderView: View {
     
     @Query(sort: \SavedFood.foodName) private var savedFoods: [SavedFood]
     
-    @State private var recipeName = ""
-    @State private var selectedIngredients: [RecipeIngredientState] = []
+    let recipeToEdit: Recipe?
+    
+    @State private var recipeName: String
+    @State private var selectedIngredients: [RecipeIngredientState]
     @State private var showIngredientSelector = false
+    
+    init(recipeToEdit: Recipe? = nil) {
+        self.recipeToEdit = recipeToEdit
+        if let recipe = recipeToEdit {
+            self._recipeName = State(initialValue: recipe.name)
+            self._selectedIngredients = State(initialValue: recipe.ingredients.map {
+                RecipeIngredientState(
+                    foodName: $0.foodName,
+                    servings: $0.servings,
+                    calories: $0.calories,
+                    protein: $0.protein,
+                    carbs: $0.carbs,
+                    fat: $0.fat,
+                    unit: $0.unit
+                )
+            })
+        } else {
+            self._recipeName = State(initialValue: "")
+            self._selectedIngredients = State(initialValue: [])
+        }
+    }
     
     struct RecipeIngredientState: Identifiable {
         let id = UUID()
@@ -155,7 +178,7 @@ struct RecipeBuilderView: View {
                     }
                 }
             }
-            .navigationTitle("Create Recipe")
+            .navigationTitle(recipeToEdit == nil ? "Create Recipe" : "Edit Recipe")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -189,19 +212,34 @@ struct RecipeBuilderView: View {
     }
     
     private func saveRecipe() {
-        let recipe = Recipe(name: recipeName)
-        recipe.ingredients = selectedIngredients.map {
-            RecipeIngredient(
-                foodName: $0.foodName,
-                servings: $0.servings,
-                calories: $0.calories,
-                protein: $0.protein,
-                carbs: $0.carbs,
-                fat: $0.fat,
-                unit: $0.unit
-            )
+        if let recipe = recipeToEdit {
+            recipe.name = recipeName
+            recipe.ingredients = selectedIngredients.map {
+                RecipeIngredient(
+                    foodName: $0.foodName,
+                    servings: $0.servings,
+                    calories: $0.calories,
+                    protein: $0.protein,
+                    carbs: $0.carbs,
+                    fat: $0.fat,
+                    unit: $0.unit
+                )
+            }
+        } else {
+            let recipe = Recipe(name: recipeName)
+            recipe.ingredients = selectedIngredients.map {
+                RecipeIngredient(
+                    foodName: $0.foodName,
+                    servings: $0.servings,
+                    calories: $0.calories,
+                    protein: $0.protein,
+                    carbs: $0.carbs,
+                    fat: $0.fat,
+                    unit: $0.unit
+                )
+            }
+            modelContext.insert(recipe)
         }
-        modelContext.insert(recipe)
         
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
