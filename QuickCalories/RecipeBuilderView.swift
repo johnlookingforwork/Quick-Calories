@@ -76,13 +76,22 @@ struct RecipeBuilderView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section(recipeName.isEmpty ? "Recipe Name" : recipeName) {
-                    TextField("Recipe Name (e.g. Morning Smoothie)", text: $recipeName)
-                        .autocorrectionDisabled()
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 16)
-                        .background(Color(red: 0.11, green: 0.11, blue: 0.12))
-                        .cornerRadius(14)
+                Section("Recipe Name") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "pencil")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.accentColor)
+                            TextField("Recipe Name (e.g. Morning Smoothie)", text: $recipeName)
+                                .autocorrectionDisabled()
+                                .font(.body)
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
+                    .background(Color(red: 0.11, green: 0.11, blue: 0.12))
+                    .cornerRadius(14)
                 }
                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                 .listRowBackground(Color.clear)
