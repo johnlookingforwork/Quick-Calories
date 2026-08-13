@@ -327,10 +327,8 @@ struct IngredientSelectorView: View {
                                     fat: food.fat,
                                     servingInfo: "\(String(format: "%.1f", food.servingSize)) \(food.unit)"
                                 )
-                                .colorScheme(.light)
                             }
                             .buttonStyle(.plain)
-                            .listRowBackground(Color.white)
                         }
                     }
                     .listStyle(.insetGrouped)

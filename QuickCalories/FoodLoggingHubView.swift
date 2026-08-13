@@ -331,10 +331,8 @@ struct FoodLoggingHubView: View {
                             fat: item.fat,
                             recipeDescription: item.recipeDescription
                         )
-                        .colorScheme(.light)
                     }
                     .buttonStyle(.plain)
-                    .listRowBackground(Color.white)
                 }
             }
         }
@@ -386,10 +384,8 @@ struct FoodLoggingHubView: View {
                             fat: food.fat,
                             servingInfo: "\(String(format: "%.1f", food.servingSize)) \(food.unit)"
                         )
-                        .colorScheme(.light)
                     }
                     .buttonStyle(.plain)
-                    .listRowBackground(Color.white)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
                             modelContext.delete(food)
@@ -466,10 +462,8 @@ struct FoodLoggingHubView: View {
                             fat: recipe.totalFat,
                             recipeDescription: recipe.ingredientListSummary
                         )
-                        .colorScheme(.light)
                     }
                     .buttonStyle(.plain)
-                    .listRowBackground(Color.white)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
                             modelContext.delete(recipe)
@@ -675,7 +669,7 @@ struct FoodHubCard: View {
                     Text("\(calories) cal")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white)
                 }
                 
                 // Macros with dots
