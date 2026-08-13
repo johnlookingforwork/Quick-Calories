@@ -16,8 +16,8 @@ struct FoodLoggingHubView: View {
     
     // Database Queries
     @Query(sort: \FoodEntry.timestamp, order: .reverse) private var allEntries: [FoodEntry]
-    @Query(sort: \SavedFood.foodName) private var savedFoods: [SavedFood]
-    @Query(sort: \Recipe.name) private var recipes: [Recipe]
+    @Query(sort: \SavedFood.orderIndex) private var savedFoods: [SavedFood]
+    @Query(sort: \Recipe.orderIndex) private var recipes: [Recipe]
     
     // View States
     @State private var searchText = ""
@@ -28,6 +28,7 @@ struct FoodLoggingHubView: View {
     @State private var foodToEdit: SavedFood? = nil
     @State private var foodToShare: SavedFood? = nil
     @State private var recipeToEdit: Recipe? = nil
+    @State private var editMode: EditMode = .inactive
     @State private var showAILog = false
     @State private var showManualAdd = false
     @State private var showRecipeBuilder = false
@@ -182,6 +183,7 @@ struct FoodLoggingHubView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                .environment(\.editMode, $editMode)
                 
                 // Bottom Bar Actions
                 HStack(spacing: 16) {
@@ -234,6 +236,16 @@ struct FoodLoggingHubView: View {
                         Text("Swipe right on items to edit or share")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+                    }
+                }
+                
+                ToolbarItem(placement: .primaryAction) {
+                    if activeTab > 0 {
+                        Button(editMode == .active ? "Done" : "Reorder") {
+                            withAnimation {
+                                editMode = (editMode == .active) ? .inactive : .active
+                            }
+                        }
                     }
                 }
             }
@@ -397,6 +409,7 @@ struct FoodLoggingHubView: View {
                         .tint(.purple)
                     }
                 }
+                .onMove(perform: moveSavedFoods)
             }
         }
     }
@@ -484,6 +497,7 @@ struct FoodLoggingHubView: View {
                         .tint(.purple)
                     }
                 }
+                .onMove(perform: moveRecipes)
             }
         }
     }
@@ -538,6 +552,28 @@ struct FoodLoggingHubView: View {
         return calendar.date(from: components) ?? date
     }
     
+    private func moveSavedFoods(from source: IndexSet, to destination: Int) {
+        var revisedItems = filteredSavedFoods
+        revisedItems.move(fromOffsets: source, toOffset: destination)
+        
+        for index in 0..<revisedItems.count {
+            revisedItems[index].orderIndex = index
+        }
+        
+        try? modelContext.save()
+    }
+    
+    private func moveRecipes(from source: IndexSet, to destination: Int) {
+        var revisedItems = filteredRecipes
+        revisedItems.move(fromOffsets: source, toOffset: destination)
+        
+        for index in 0..<revisedItems.count {
+            revisedItems[index].orderIndex = index
+        }
+        
+        try? modelContext.save()
+    }
+    
     // --- QR Scan Helper ---
     
     private func handleScanSuccess(payload: String) {
@@ -572,6 +608,7 @@ struct FoodLoggingHubView: View {
                 return
             }
             
+            let minIndex = SavedFood.nextOrderIndex(modelContext: modelContext)
             let food = SavedFood(
                 foodName: name,
                 servingSize: servingSize,
@@ -579,7 +616,8 @@ struct FoodLoggingHubView: View {
                 calories: calories,
                 protein: protein,
                 carbs: carbs,
-                fat: fat
+                fat: fat,
+                orderIndex: minIndex
             )
             
             DispatchQueue.main.async {

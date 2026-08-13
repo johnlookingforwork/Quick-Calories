@@ -57,6 +57,13 @@ final class SavedFood {
         self.createdAt = Date()
         self.orderIndex = orderIndex
     }
+    
+    @MainActor
+    static func nextOrderIndex(modelContext: ModelContext) -> Int {
+        let descriptor = FetchDescriptor<SavedFood>(sortBy: [SortDescriptor(\.orderIndex, order: .forward)])
+        let existing = (try? modelContext.fetch(descriptor)) ?? []
+        return (existing.first?.orderIndex ?? 0) - 1
+    }
 }
 
 @Model
@@ -166,15 +173,24 @@ final class Recipe {
     var id: UUID
     var name: String
     var createdAt: Date
+    var orderIndex: Int = 0
     
     @Relationship(deleteRule: .cascade)
     var ingredients: [RecipeIngredient]
     
-    init(name: String) {
+    init(name: String, orderIndex: Int = 0) {
         self.id = UUID()
         self.name = name
         self.createdAt = Date()
         self.ingredients = []
+        self.orderIndex = orderIndex
+    }
+    
+    @MainActor
+    static func nextOrderIndex(modelContext: ModelContext) -> Int {
+        let descriptor = FetchDescriptor<Recipe>(sortBy: [SortDescriptor(\.orderIndex, order: .forward)])
+        let existing = (try? modelContext.fetch(descriptor)) ?? []
+        return (existing.first?.orderIndex ?? 0) - 1
     }
     
     var totalCalories: Int {

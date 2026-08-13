@@ -193,6 +193,7 @@ struct SavedFoodsView: View {
                 return
             }
             
+            let minIndex = SavedFood.nextOrderIndex(modelContext: modelContext)
             let food = SavedFood(
                 foodName: name,
                 servingSize: servingSize,
@@ -200,7 +201,8 @@ struct SavedFoodsView: View {
                 calories: calories,
                 protein: protein,
                 carbs: carbs,
-                fat: fat
+                fat: fat,
+                orderIndex: minIndex
             )
             
             DispatchQueue.main.async {
@@ -463,6 +465,7 @@ struct AddSavedFoodView: View {
             return
         }
 
+        let minIndex = SavedFood.nextOrderIndex(modelContext: modelContext)
         let food = SavedFood(
             foodName: foodName,
             servingSize: servingSizeValue,
@@ -470,7 +473,8 @@ struct AddSavedFoodView: View {
             calories: caloriesValue,
             protein: proteinValue,
             carbs: carbsValue,
-            fat: fatValue
+            fat: fatValue,
+            orderIndex: minIndex
         )
 
         modelContext.insert(food)

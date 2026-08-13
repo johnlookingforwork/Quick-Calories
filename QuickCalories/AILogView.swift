@@ -857,6 +857,7 @@ struct SaveToSavedFoodsView: View {
     private func saveFood() {
         guard let servingSizeValue = Double(servingSize) else { return }
         
+        let minIndex = SavedFood.nextOrderIndex(modelContext: modelContext)
         let food = SavedFood(
             foodName: foodName,
             servingSize: servingSizeValue,
@@ -864,7 +865,8 @@ struct SaveToSavedFoodsView: View {
             calories: calories,
             protein: protein,
             carbs: carbs,
-            fat: fat
+            fat: fat,
+            orderIndex: minIndex
         )
         
         modelContext.insert(food)

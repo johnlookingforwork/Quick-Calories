@@ -273,7 +273,8 @@ struct RecipeBuilderView: View {
                 )
             }
         } else {
-            let recipe = Recipe(name: recipeName)
+            let minIndex = Recipe.nextOrderIndex(modelContext: modelContext)
+            let recipe = Recipe(name: recipeName, orderIndex: minIndex)
             recipe.ingredients = selectedIngredients.map {
                 RecipeIngredient(
                     foodName: $0.foodName,
