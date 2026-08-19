@@ -307,8 +307,8 @@ final class SettingsManager {
             return true
         }
         
-        // Free tier: 2 requests per day
-        return dailyAIRequestCount < 2
+        // Free tier: 1 request per day
+        return dailyAIRequestCount < 1
     }
     
     func incrementAIRequestCount() {

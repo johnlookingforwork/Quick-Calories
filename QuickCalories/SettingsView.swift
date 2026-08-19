@@ -205,7 +205,7 @@ struct SettingsView: View {
                             Text("Unlimited (Premium)")
                                 .foregroundStyle(.green)
                         } else {
-                            Text("Free Plan (2 daily)")
+                            Text("Free Plan (1 daily)")
                                 .foregroundStyle(.secondary)
                         }
                         Image(systemName: "chevron.right")
@@ -394,7 +394,7 @@ struct APIKeyInfoView: View {
                     Text("Why provide your own API key?")
                         .font(.headline)
                     
-                    Text("QuickCalories uses OpenAI's GPT-4o-mini model to convert natural language into nutritional data. The free tier includes 2 free AI requests per day.")
+                    Text("QuickCalories uses OpenAI's GPT-4o-mini model to convert natural language into nutritional data. The free tier includes 1 AI request per day.")
                         .font(.body)
                     
                     Text("If you have your own OpenAI API key, you can:")
