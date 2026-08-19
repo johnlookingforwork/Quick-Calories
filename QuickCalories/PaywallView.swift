@@ -158,7 +158,7 @@ struct PaywallView: View {
                             ProgressView()
                                 .tint(.white)
                         } else {
-                            Text(selectedProduct == nil ? "Select a Plan" : "Start Free Trial")
+                            Text(selectedProduct == nil ? "Select a Plan" : "Subscribe Now")
                                 .font(.headline)
                         }
                     }
@@ -192,9 +192,19 @@ struct PaywallView: View {
                     
                     // Legal
                     VStack(spacing: 4) {
-                        Text("7-day free trial, then auto-renews")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        if let product = selectedProduct {
+                            Text("Billed immediately. Auto-renews at \(product.displayPrice) \(product.id.contains("annual") == true ? "yearly" : "monthly") unless canceled.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        } else {
+                            Text("Select a plan above. Auto-renews unless canceled.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
                         
                         HStack(spacing: 12) {
                             Link("Terms", destination: URL(string: "https://example.com/terms")!)
