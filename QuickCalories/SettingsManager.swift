@@ -148,7 +148,7 @@ final class SettingsManager {
         }
     }
     
-    var metabolicWindowDays: Int = 30 {
+    var metabolicWindowDays: Int = 14 {
         didSet {
             UserDefaults.standard.set(metabolicWindowDays, forKey: "metabolicWindowDays")
         }
@@ -251,7 +251,7 @@ final class SettingsManager {
         self.lastTargetUpdateTime = UserDefaults.standard.object(forKey: "lastTargetUpdateTime") as? Date
         self.metabolicWindowDays = UserDefaults.standard.integer(forKey: "metabolicWindowDays")
         if self.metabolicWindowDays == 0 {
-            self.metabolicWindowDays = 30
+            self.metabolicWindowDays = 14
         }
         self.isManualTarget = UserDefaults.standard.bool(forKey: "isManualTarget")
         self.pendingTargetUpdateAlert = UserDefaults.standard.string(forKey: "pendingTargetUpdateAlert")
