@@ -149,6 +149,7 @@ struct SettingsView: View {
                     }
                 )) {
                     Text("7 Days").tag(7)
+                    Text("14 Days").tag(14)
                     Text("30 Days").tag(30)
                 }
                 

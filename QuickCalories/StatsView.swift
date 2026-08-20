@@ -96,6 +96,10 @@ struct StatsView: View {
         getAverages(daysLimit: 7)
     }
     
+    private var averages14Day: (calories: Int, protein: Double, carbs: Double, fat: Double, activeCount: Int) {
+        getAverages(daysLimit: 14)
+    }
+    
     private var averages30Day: (calories: Int, protein: Double, carbs: Double, fat: Double, activeCount: Int) {
         getAverages(daysLimit: 30)
     }
@@ -596,16 +600,23 @@ struct StatsView: View {
                         .font(.headline)
                         .padding(.horizontal)
                     
-                    HStack(spacing: 16) {
+                    HStack(spacing: 8) {
                         CalorieAvgCard(
-                            title: "7-Day Average",
+                            title: "7-Day Avg",
                             calories: averages7Day.calories,
                             activeDays: averages7Day.activeCount,
                             totalDays: 7
                         )
                         
                         CalorieAvgCard(
-                            title: "30-Day Average",
+                            title: "14-Day Avg",
+                            calories: averages14Day.calories,
+                            activeDays: averages14Day.activeCount,
+                            totalDays: 14
+                        )
+                        
+                        CalorieAvgCard(
+                            title: "30-Day Avg",
                             calories: averages30Day.calories,
                             activeDays: averages30Day.activeCount,
                             totalDays: 30
@@ -978,7 +989,7 @@ struct CalorieAvgCard: View {
                 .font(.system(size: 32, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
             
-            Text("\(activeDays) / \(totalDays) logged days")
+            Text("\(activeDays)/\(totalDays) logged")
                 .font(.caption2)
                 .foregroundStyle(Color.accentColor)
         }
