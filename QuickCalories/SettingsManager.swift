@@ -203,6 +203,12 @@ final class SettingsManager {
         }
     }
     
+    var weightAverageDays: Int = 5 {
+        didSet {
+            UserDefaults.standard.set(weightAverageDays, forKey: "weightAverageDays")
+        }
+    }
+    
     private init() {
         // Load saved values or use defaults
         let savedCalories = UserDefaults.standard.integer(forKey: "dailyCalorieTarget")
@@ -249,6 +255,9 @@ final class SettingsManager {
         }
         self.isManualTarget = UserDefaults.standard.bool(forKey: "isManualTarget")
         self.pendingTargetUpdateAlert = UserDefaults.standard.string(forKey: "pendingTargetUpdateAlert")
+        
+        let savedWeightDays = UserDefaults.standard.integer(forKey: "weightAverageDays")
+        self.weightAverageDays = savedWeightDays > 0 ? savedWeightDays : 5
         
         // Migration: Detect if they already had a manual target before this update
         if !UserDefaults.standard.bool(forKey: "hasConfiguredManualTargetFlag") {

@@ -29,6 +29,7 @@ struct SettingsView: View {
     @State private var showAPIKeySetup = false
     @State private var showWeightGoalSetup = false
     @State private var versionTapCount = 0
+    @State private var weightAverageDays = 5
     
     private var healthKitManager = HealthKitManager.shared
     private var settings = SettingsManager.shared
@@ -131,6 +132,12 @@ struct SettingsView: View {
                     ForEach(DietMode.allCases, id: \.self) { mode in
                         Text(mode.rawValue).tag(mode)
                     }
+                }
+                
+                Picker("Weight Goal Avg", selection: $weightAverageDays) {
+                    Text("3-Day Average").tag(3)
+                    Text("5-Day Average").tag(5)
+                    Text("7-Day Average").tag(7)
                 }
                 
                 Picker("Metabolic Window", selection: Binding(
@@ -339,6 +346,9 @@ struct SettingsView: View {
         .onChange(of: dietMode) { _, newValue in
             SettingsManager.shared.dietMode = newValue
         }
+        .onChange(of: weightAverageDays) { _, newValue in
+            SettingsManager.shared.weightAverageDays = newValue
+        }
     }
     
     private func loadSettings() {
@@ -348,6 +358,7 @@ struct SettingsView: View {
         carbsTarget = settings.carbsTarget
         fatTarget = settings.fatTarget
         dietMode = settings.dietMode
+        weightAverageDays = settings.weightAverageDays
     }
     
     private func recalculateTargets() {

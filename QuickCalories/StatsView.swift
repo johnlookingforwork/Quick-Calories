@@ -113,21 +113,22 @@ struct StatsView: View {
         return target
     }
     
-    // 3-day rolling average of weight to smooth out daily fluctuations
-    private var averageWeight3Day: Double {
+    // Rolling average of weight to smooth out daily fluctuations based on settings
+    private var averageWeightSelectedDays: Double {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
+        let days = settings.weightAverageDays
         
-        let last3DaysWeights = weightHistory.filter { (date, _) in
+        let lastDaysWeights = weightHistory.filter { (date, _) in
             let daysAgo = calendar.dateComponents([.day], from: date, to: today).day ?? 999
-            return daysAgo >= 0 && daysAgo < 3
+            return daysAgo >= 0 && daysAgo < days
         }.values
         
-        if !last3DaysWeights.isEmpty {
-            return last3DaysWeights.reduce(0.0, +) / Double(last3DaysWeights.count)
+        if !lastDaysWeights.isEmpty {
+            return lastDaysWeights.reduce(0.0, +) / Double(lastDaysWeights.count)
         }
         
-        // Fallback to single latest weight if no history for the last 3 days
+        // Fallback to single latest weight if no history for the last N days
         return settings.userWeight
     }
     
@@ -164,7 +165,7 @@ struct StatsView: View {
     private var suggestedCalorieTarget: Int {
         let targetWeightKg = settings.targetWeight
         let targetDate = settings.targetDate
-        let currentWeightKg = averageWeight3Day
+        let currentWeightKg = averageWeightSelectedDays
         
         guard targetWeightKg > 0, targetDate > Date(), currentWeightKg > 0 else {
             return settings.dailyCalorieTarget
@@ -339,10 +340,11 @@ struct StatsView: View {
                         
                         VStack(spacing: 16) {
                             WeightProgressCard(
-                                startWeight: settings.startWeight > 0 ? settings.startWeight : averageWeight3Day,
-                                currentWeight: averageWeight3Day,
+                                startWeight: settings.startWeight > 0 ? settings.startWeight : averageWeightSelectedDays,
+                                currentWeight: averageWeightSelectedDays,
                                 targetWeight: settings.targetWeight,
-                                useMetric: settings.useMetricSystem
+                                useMetric: settings.useMetricSystem,
+                                averageDays: settings.weightAverageDays
                             )
                             
                             // Weight line graph
@@ -824,6 +826,7 @@ struct WeightProgressCard: View {
     let currentWeight: Double
     let targetWeight: Double
     let useMetric: Bool
+    let averageDays: Int
     
     private var formatWeight: (Double) -> String {
         return { w in
@@ -871,7 +874,7 @@ struct WeightProgressCard: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("Current (3-Day Avg): \(formatWeight(currentWeight))")
+                Text("Current (\(averageDays)-Day Avg): \(formatWeight(currentWeight))")
                     .font(.caption2)
                     .fontWeight(.semibold)
                 Spacer()
@@ -880,7 +883,7 @@ struct WeightProgressCard: View {
                     .foregroundStyle(.secondary)
             }
             
-            Text("Uses a 3-day average to smooth out daily water weight fluctuations.")
+            Text("Uses a \(averageDays)-day average to smooth out daily water weight fluctuations.")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
