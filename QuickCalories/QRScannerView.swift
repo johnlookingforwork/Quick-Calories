@@ -8,7 +8,120 @@
 import SwiftUI
 import AVFoundation
 
-struct QRScannerView: UIViewControllerRepresentable {
+import PhotosUI
+import CoreImage
+
+struct QRScannerView: View {
+    @Environment(\.dismiss) private var dismiss
+    var onScanSuccess: (String) -> Void
+    var onScanFailure: (String) -> Void
+    
+    @State private var selectedItem: PhotosPickerItem? = nil
+    @State private var isProcessingPhoto = false
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                CameraQRScannerView { payload in
+                    onScanSuccess(payload)
+                } onScanFailure: { error in
+                    onScanFailure(error)
+                }
+                .ignoresSafeArea()
+                
+                VStack {
+                    Spacer()
+                    
+                    PhotosPicker(selection: $selectedItem, matching: .images, photoLibrary: .shared()) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "photo.on.rectangle.angled")
+                            Text("Import from Photos")
+                        }
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 24)
+                        .background(Color.black.opacity(0.7))
+                        .cornerRadius(25)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 25)
+                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .padding(.bottom, 40)
+                    .disabled(isProcessingPhoto)
+                }
+                
+                if isProcessingPhoto {
+                    Color.black.opacity(0.5)
+                        .ignoresSafeArea()
+                    ProgressView("Decoding QR Code...")
+                        .tint(.white)
+                        .foregroundStyle(.white)
+                }
+            }
+            .navigationTitle("Scan QR Code")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+            .onChange(of: selectedItem) { _, newItem in
+                guard let newItem else { return }
+                processSelectedPhoto(newItem)
+            }
+        }
+    }
+    
+    private func processSelectedPhoto(_ item: PhotosPickerItem) {
+        isProcessingPhoto = true
+        Task {
+            do {
+                guard let data = try await item.loadTransferable(type: Data.self),
+                      let image = UIImage(data: data) else {
+                    throw NSError(domain: "QRScanner", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to load image data"])
+                }
+                
+                if let payload = decodeQRCode(from: image) {
+                    await MainActor.run {
+                        isProcessingPhoto = false
+                        onScanSuccess(payload)
+                    }
+                } else {
+                    throw NSError(domain: "QRScanner", code: -2, userInfo: [NSLocalizedDescriptionKey: "No QR code found in selected photo."])
+                }
+            } catch {
+                await MainActor.run {
+                    isProcessingPhoto = false
+                    onScanFailure(error.localizedDescription)
+                }
+            }
+        }
+    }
+    
+    private func decodeQRCode(from image: UIImage) -> String? {
+        guard let ciImage = CIImage(image: image) else { return nil }
+        
+        let context = CIContext()
+        let options = [CIDetectorAccuracy: CIDetectorAccuracyHigh]
+        guard let detector = CIDetector(ofType: CIDetectorTypeQRCode, context: context, options: options) else {
+            return nil
+        }
+        
+        let features = detector.features(in: ciImage)
+        for feature in features {
+            if let qrFeature = feature as? CIQRCodeFeature, let payload = qrFeature.messageString {
+                return payload
+            }
+        }
+        return nil
+    }
+}
+
+struct CameraQRScannerView: UIViewControllerRepresentable {
     var onScanSuccess: (String) -> Void
     var onScanFailure: (String) -> Void
     
@@ -29,9 +142,9 @@ struct QRScannerView: UIViewControllerRepresentable {
     }
     
     class Coordinator: NSObject, ScannerViewControllerDelegate {
-        let parent: QRScannerView
+        let parent: CameraQRScannerView
         
-        init(parent: QRScannerView) {
+        init(parent: CameraQRScannerView) {
             self.parent = parent
         }
         
