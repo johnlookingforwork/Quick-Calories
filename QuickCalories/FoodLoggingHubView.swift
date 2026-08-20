@@ -340,6 +340,23 @@ struct FoodLoggingHubView: View {
                             Label("Delete", systemImage: "trash")
                         }
                     }
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        Button {
+                            let tempFood = SavedFood(
+                                foodName: item.name,
+                                servingSize: 1.0,
+                                unit: "serving",
+                                calories: item.calories,
+                                protein: item.protein,
+                                carbs: item.carbs,
+                                fat: item.fat
+                            )
+                            foodToShare = tempFood
+                        } label: {
+                            Label("Share", systemImage: "qrcode")
+                        }
+                        .tint(.purple)
+                    }
                 }
             }
         }
