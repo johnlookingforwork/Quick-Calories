@@ -62,22 +62,25 @@ struct SettingsView: View {
                         MacroTargetBadge(name: "Carbs", amount: carbsTarget, color: .blue)
                         MacroTargetBadge(name: "Fat", amount: fatTarget, color: .yellow)
                     }
+                    
+                    Divider()
+                        .padding(.top, 8)
+                    
+                    Button {
+                        showTargetSetup = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Label("Adjust Calories & Macros", systemImage: "slider.horizontal.3")
+                                .fontWeight(.semibold)
+                                .foregroundStyle(Color.accentColor)
+                            Spacer()
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
-                
-                Button {
-                    showTargetSetup = true
-                } label: {
-                    HStack {
-                        Spacer()
-                        Label("Adjust Calories & Macros", systemImage: "slider.horizontal.3")
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.accentColor)
-                        Spacer()
-                    }
-                }
-                .buttonStyle(.plain)
                 
                 // Profile summary row
                 Button {
