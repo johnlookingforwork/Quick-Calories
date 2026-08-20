@@ -984,14 +984,19 @@ struct CalorieAvgCard: View {
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
             
             Text("\(calories)")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .font(.system(size: 26, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             
             Text("\(activeDays)/\(totalDays) logged")
                 .font(.caption2)
                 .foregroundStyle(Color.accentColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
