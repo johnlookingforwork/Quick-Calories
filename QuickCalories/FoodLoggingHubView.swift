@@ -161,7 +161,7 @@ struct FoodLoggingHubView: View {
                                         Text("Ask AI to log \"\(searchText)\"")
                                             .font(.headline)
                                             .foregroundStyle(.purple)
-                                        Text("Gemini will estimate macros automatically")
+                                        Text("macros will be estimated automatically")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
@@ -318,7 +318,7 @@ struct FoodLoggingHubView: View {
                     .font(.subheadline)
             }
         } else {
-            Section("Recently logged") {
+            Section("Recently Logged") {
                 ForEach(filteredRecents) { item in
                     Button {
                         itemToLog = item
@@ -333,6 +333,13 @@ struct FoodLoggingHubView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            deleteRecentFood(item)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
                 }
             }
         }
@@ -550,6 +557,19 @@ struct FoodLoggingHubView: View {
         components.second = 59
         
         return calendar.date(from: components) ?? date
+    }
+    
+    private func deleteRecentFood(_ item: LoggableItem) {
+        let nameToDelete = item.name.lowercased()
+        let descriptor = FetchDescriptor<FoodEntry>()
+        if let entries = try? modelContext.fetch(descriptor) {
+            for entry in entries {
+                if entry.foodName.lowercased() == nameToDelete {
+                    modelContext.delete(entry)
+                }
+            }
+            try? modelContext.save()
+        }
     }
     
     private func moveSavedFoods(from source: IndexSet, to destination: Int) {
