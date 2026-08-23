@@ -21,6 +21,12 @@ struct StatsView: View {
     @State private var selectedWeightPoint: WeightChartPoint? = nil
     @State private var selectedCaloriePoint: CalorieChartPoint? = nil
     @State private var selectedTargetPoint: TargetChartPoint? = nil
+    @State private var showWeightGoalSetup = false
+    
+    @State private var calorieTarget = 2000
+    @State private var proteinTarget = 150.0
+    @State private var carbsTarget = 200.0
+    @State private var fatTarget = 67.0
     
     private var settings = SettingsManager.shared
     
@@ -324,6 +330,411 @@ struct StatsView: View {
         return lowerBound...upperBound
     }
     
+    private var isGoalExpired: Bool {
+        Calendar.current.startOfDay(for: settings.targetDate) < Calendar.current.startOfDay(for: Date())
+    }
+    
+    @ViewBuilder
+    private var expiredGoalWarningView: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .font(.title3)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Weight Goal Ended")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.primary)
+                Text("The target date has passed. Tap to update your timeframe.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+            }
+            
+            Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .background(Color.orange.opacity(0.1))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            showWeightGoalSetup = true
+        }
+    }
+    
+    @ViewBuilder
+    private var weightGoalProgressSection: some View {
+        if settings.targetWeight > 0 {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Weight Goal Progress")
+                    .font(.headline)
+                    .padding(.horizontal)
+                
+                VStack(spacing: 16) {
+                    WeightProgressCard(
+                        startWeight: settings.startWeight > 0 ? settings.startWeight : averageWeightSelectedDays,
+                        currentWeight: averageWeightSelectedDays,
+                        targetWeight: settings.targetWeight,
+                        useMetric: settings.useMetricSystem,
+                        averageDays: settings.weightAverageDays
+                    )
+                    
+                    if isGoalExpired {
+                        expiredGoalWarningView
+                    }
+                    
+                    // Weight line graph
+                    if !weightChartData.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            if let selected = selectedWeightPoint {
+                                Text("\(selected.date.formatted(date: .abbreviated, time: .omitted)): **\(formatWeight(selected.weight))**")
+                                    .font(.caption)
+                                    .foregroundStyle(Color.accentColor)
+                                    .transition(.opacity)
+                            } else {
+                                Text("Hold & drag graph to scrub values")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            
+                            Chart {
+                                ForEach(weightChartData) { point in
+                                    LineMark(
+                                        x: .value("Date", point.date),
+                                        y: .value("Weight", settings.useMetricSystem ? point.weight : point.weight.kgToLbs)
+                                    )
+                                    .foregroundStyle(Color.accentColor)
+                                    .interpolationMethod(.catmullRom)
+                                    
+                                    AreaMark(
+                                        x: .value("Date", point.date),
+                                        yStart: .value("Min", (settings.useMetricSystem ? weightChartDomain.lowerBound : weightChartDomain.lowerBound)),
+                                        yEnd: .value("Weight", settings.useMetricSystem ? point.weight : point.weight.kgToLbs)
+                                    )
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [Color.accentColor.opacity(0.15), Color.accentColor.opacity(0.01)],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                    
+                                    // Target weight horizontal rule
+                                    RuleMark(
+                                        y: .value("Target", settings.useMetricSystem ? settings.targetWeight : settings.targetWeight.kgToLbs)
+                                    )
+                                    .foregroundStyle(.red)
+                                    .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [4, 4]))
+                                    .annotation(position: .top, alignment: .trailing) {
+                                        Text("Target")
+                                            .font(.caption2)
+                                            .foregroundStyle(.red)
+                                            .padding(.horizontal, 4)
+                                            .background(Color(.secondarySystemGroupedBackground).opacity(0.8))
+                                    }
+                                    
+                                    // Scrubbing indicator
+                                    if let selected = selectedWeightPoint {
+                                        RuleMark(
+                                            x: .value("Date", selected.date)
+                                        )
+                                        .foregroundStyle(.secondary.opacity(0.4))
+                                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                                        
+                                        PointMark(
+                                            x: .value("Date", selected.date),
+                                            y: .value("Weight", settings.useMetricSystem ? selected.weight : selected.weight.kgToLbs)
+                                        )
+                                        .foregroundStyle(Color.accentColor)
+                                        .symbolSize(100)
+                                    }
+                                }
+                            }
+                            .frame(height: 140)
+                            .chartYScale(domain: weightChartDomain)
+                            .chartXAxis {
+                                AxisMarks(values: .stride(by: .day, count: 7)) { value in
+                                    AxisGridLine()
+                                    AxisValueLabel(format: .dateTime.day().month())
+                                }
+                            }
+                            .chartOverlay { proxy in
+                                GeometryReader { geo in
+                                    Rectangle()
+                                        .fill(.clear)
+                                        .contentShape(Rectangle())
+                                        .gesture(
+                                            DragGesture(minimumDistance: 0)
+                                                .onChanged { value in
+                                                    let xLocation = value.location.x
+                                                    if let date: Date = proxy.value(atX: xLocation) {
+                                                        if let closest = weightChartData.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) }) {
+                                                            selectedWeightPoint = closest
+                                                        }
+                                                    }
+                                                }
+                                                .onEnded { _ in
+                                                    selectedWeightPoint = nil
+                                                }
+                                        )
+                                }
+                            }
+                            .padding(.vertical, 8)
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Weekly Plan Recommendation")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        
+                        let dateStr = settings.targetDate.formatted(date: .abbreviated, time: .omitted)
+                        let weightStr = settings.useMetricSystem ? String(format: "%.1f kg", settings.targetWeight) : String(format: "%.1f lbs", settings.targetWeight.kgToLbs)
+                        
+                        Text("To reach your target of **\(weightStr)** by **\(dateStr)**, we recommend eating **\(suggestedCalorieTarget) calories/day**.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        
+                        if settings.useAdaptiveCalorieTarget {
+                            HStack(alignment: .top, spacing: 6) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                    .padding(.top, 1)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Auto-updating daily target enabled.")
+                                        .font(.caption2)
+                                        .foregroundStyle(.green)
+                                        .fontWeight(.medium)
+                                    if let lastUpdate = settings.lastTargetUpdateTime {
+                                        Text("Last adjusted: \(lastUpdate.formatted(date: .abbreviated, time: .shortened))")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.secondary)
+                                    } else {
+                                        Text("Last adjusted: recently")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                            .padding(.top, 2)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding()
+                .background(Color(.secondarySystemGroupedBackground))
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+                .padding(.horizontal)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var dailyTargetHistorySection: some View {
+        if settings.useAdaptiveCalorieTarget {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Daily Target History")
+                    .font(.headline)
+                    .padding(.horizontal)
+                
+                VStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let selected = selectedTargetPoint {
+                            Text("\(selected.date.formatted(date: .abbreviated, time: .omitted)): **\(selected.targetCalories) cal**")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                                .transition(.opacity)
+                        } else {
+                            if hasTargetHistory {
+                                Text("Hold & drag graph to scrub values")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("💡 Target history will show daily adjustments over time (currently showing preview)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        
+                        Chart {
+                            ForEach(targetChartData) { point in
+                                LineMark(
+                                    x: .value("Date", point.date),
+                                    y: .value("Target", Double(point.targetCalories))
+                                )
+                                .foregroundStyle(.orange)
+                                .interpolationMethod(.stepStart)
+                                
+                                AreaMark(
+                                    x: .value("Date", point.date),
+                                    yStart: .value("Min", Double(targetChartDomain.lowerBound)),
+                                    yEnd: .value("Target", Double(point.targetCalories))
+                                )
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.orange.opacity(0.15), .orange.opacity(0.01)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                                
+                                // Scrubbing indicator
+                                if let selected = selectedTargetPoint {
+                                    RuleMark(
+                                        x: .value("Date", selected.date)
+                                    )
+                                    .foregroundStyle(.secondary.opacity(0.4))
+                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                                    
+                                    PointMark(
+                                        x: .value("Date", selected.date),
+                                        y: .value("Target", Double(selected.targetCalories))
+                                    )
+                                    .foregroundStyle(.orange)
+                                    .symbolSize(100)
+                                }
+                            }
+                        }
+                        .frame(height: 140)
+                        .chartYScale(domain: targetChartDomain)
+                        .chartXAxis {
+                            AxisMarks(values: .stride(by: .day, count: 7)) { value in
+                                AxisGridLine()
+                                AxisValueLabel(format: .dateTime.day().month())
+                            }
+                        }
+                        .chartOverlay { proxy in
+                            GeometryReader { geo in
+                                Rectangle()
+                                    .fill(.clear)
+                                    .contentShape(Rectangle())
+                                    .gesture(
+                                        DragGesture(minimumDistance: 0)
+                                            .onChanged { value in
+                                                let xLocation = value.location.x
+                                                if let date: Date = proxy.value(atX: xLocation) {
+                                                    if let closest = targetChartData.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) }) {
+                                                        selectedTargetPoint = closest
+                                                    }
+                                                }
+                                            }
+                                            .onEnded { _ in
+                                                selectedTargetPoint = nil
+                                            }
+                                    )
+                            }
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(.secondarySystemGroupedBackground))
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+                .padding(.horizontal)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Your Daily Budget: **\(settings.dailyCalorieTarget) cal** (set in Settings)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    
+                    if averages7Day.calories > 0 {
+                        let diff = averages7Day.calories - averages30Day.calories
+                        HStack(spacing: 6) {
+                            Image(systemName: diff < 0 ? "arrow.down.forward.circle.fill" : "arrow.up.forward.circle.fill")
+                                .foregroundStyle(diff < 0 ? .green : .orange)
+                            Text(diff < 0
+                                 ? "You are eating \(abs(diff)) calories/day less this week than your 30-day average."
+                                 : "You are eating \(diff) calories/day more this week than your 30-day average.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 4)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var metabolicInsightsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Metabolic Insights")
+                .font(.headline)
+                .padding(.horizontal)
+            
+            VStack(spacing: 20) {
+                // True Daily Burn Card
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("True Daily Burn (Metabolism)")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                        Spacer()
+                        Text("\(adaptiveTDEE) cal")
+                            .font(.headline)
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    
+                    Text("This is your actual metabolism (including BMR, daily steps, and workouts). It is how many calories you burn per day, calculated from your real-world weight changes and logged food over the last \(settings.metabolicWindowDays) days.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(2)
+                }
+                
+                Divider()
+                
+                // Projected Weight Trend Card
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Projected Weight Trend")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                        Spacer()
+                        
+                        let proj = weightProjection
+                        if proj.value == 0 {
+                            Text("Stable")
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(String(format: "%+.1f %@", proj.value, proj.unit))
+                                .font(.headline)
+                                .foregroundStyle(proj.value < 0 ? .green : .orange)
+                        }
+                    }
+                    
+                    let proj = weightProjection
+                    Text(proj.value < 0
+                         ? "Based on what you ate this week relative to your actual metabolism, you are on track to lose \(abs(proj.value).formatted(.number.precision(.fractionLength(1)))) \(proj.unit) per week."
+                         : proj.value > 0
+                         ? "Based on what you ate this week relative to your actual metabolism, you are on track to gain \(proj.value.formatted(.number.precision(.fractionLength(1)))) \(proj.unit) per week."
+                         : "Based on what you ate this week relative to your actual metabolism, your weight is projected to remain stable.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(2)
+                }
+            }
+            .padding()
+            .background(Color(.secondarySystemGroupedBackground))
+            .cornerRadius(16)
+            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+            .padding(.horizontal)
+        }
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -335,264 +746,9 @@ struct StatsView: View {
                     onSyncTrigger: syncWeightFromHealth
                 )
                 
-                // 1. Weight Goal Progress Section
-                if settings.targetWeight > 0 {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Weight Goal Progress")
-                            .font(.headline)
-                            .padding(.horizontal)
-                        
-                        VStack(spacing: 16) {
-                            WeightProgressCard(
-                                startWeight: settings.startWeight > 0 ? settings.startWeight : averageWeightSelectedDays,
-                                currentWeight: averageWeightSelectedDays,
-                                targetWeight: settings.targetWeight,
-                                useMetric: settings.useMetricSystem,
-                                averageDays: settings.weightAverageDays
-                            )
-                            
-                            // Weight line graph
-                            if !weightChartData.isEmpty {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    if let selected = selectedWeightPoint {
-                                        Text("\(selected.date.formatted(date: .abbreviated, time: .omitted)): **\(formatWeight(selected.weight))**")
-                                            .font(.caption)
-                                            .foregroundStyle(Color.accentColor)
-                                            .transition(.opacity)
-                                    } else {
-                                        Text("Hold & drag graph to scrub values")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    
-                                    Chart {
-                                        ForEach(weightChartData) { point in
-                                            LineMark(
-                                                x: .value("Date", point.date, unit: .day),
-                                                y: .value("Weight", settings.useMetricSystem ? point.weight : point.weight.kgToLbs)
-                                            )
-                                            .foregroundStyle(Color.accentColor.gradient)
-                                            .interpolationMethod(.catmullRom)
-                                            .lineStyle(StrokeStyle(lineWidth: 3))
-                                            
-                                            PointMark(
-                                                x: .value("Date", point.date, unit: .day),
-                                                y: .value("Weight", settings.useMetricSystem ? point.weight : point.weight.kgToLbs)
-                                            )
-                                            .foregroundStyle(Color.accentColor)
-                                            .symbolSize(30)
-                                        }
-                                        
-                                        // Target reference line
-                                        RuleMark(
-                                            y: .value("Target", settings.useMetricSystem ? settings.targetWeight : settings.targetWeight.kgToLbs)
-                                        )
-                                        .foregroundStyle(.red)
-                                        .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [4, 4]))
-                                        .annotation(position: .top, alignment: .trailing) {
-                                            Text("Target")
-                                                .font(.caption2)
-                                                .foregroundStyle(.red)
-                                                .padding(.horizontal, 4)
-                                                .background(Color(.secondarySystemGroupedBackground).opacity(0.8))
-                                        }
-                                        
-                                        // Scrubbing indicator
-                                        if let selected = selectedWeightPoint {
-                                            RuleMark(
-                                                x: .value("Date", selected.date)
-                                            )
-                                            .foregroundStyle(.secondary.opacity(0.4))
-                                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 2]))
-                                            
-                                            PointMark(
-                                                x: .value("Date", selected.date),
-                                                y: .value("Weight", settings.useMetricSystem ? selected.weight : selected.weight.kgToLbs)
-                                            )
-                                            .foregroundStyle(Color.accentColor)
-                                            .symbolSize(100)
-                                        }
-                                    }
-                                    .frame(height: 140)
-                                    .chartYScale(domain: weightChartDomain)
-                                    .chartXAxis {
-                                        AxisMarks(values: .stride(by: .day, count: 7)) { value in
-                                            AxisGridLine()
-                                            AxisValueLabel(format: .dateTime.day().month())
-                                        }
-                                    }
-                                    .chartOverlay { proxy in
-                                        GeometryReader { geo in
-                                            Rectangle()
-                                                .fill(.clear)
-                                                .contentShape(Rectangle())
-                                                .gesture(
-                                                    DragGesture(minimumDistance: 0)
-                                                        .onChanged { value in
-                                                            let xLocation = value.location.x
-                                                            if let date: Date = proxy.value(atX: xLocation) {
-                                                                if let closest = weightChartData.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) }) {
-                                                                    selectedWeightPoint = closest
-                                                                }
-                                                            }
-                                                        }
-                                                        .onEnded { _ in
-                                                            selectedWeightPoint = nil
-                                                        }
-                                                )
-                                        }
-                                    }
-                                    .padding(.vertical, 8)
-                                }
-                            }
-                            
-                            Divider()
-                            
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Weekly Plan Recommendation")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                
-                                let dateStr = settings.targetDate.formatted(date: .abbreviated, time: .omitted)
-                                let weightStr = settings.useMetricSystem ? String(format: "%.1f kg", settings.targetWeight) : String(format: "%.1f lbs", settings.targetWeight.kgToLbs)
-                                
-                                Text("To reach your target of **\(weightStr)** by **\(dateStr)**, we recommend eating **\(suggestedCalorieTarget) calories/day**.")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                
-                                if settings.useAdaptiveCalorieTarget {
-                                    HStack(alignment: .top, spacing: 6) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(.green)
-                                            .padding(.top, 1)
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text("Auto-updating daily target enabled.")
-                                                .font(.caption2)
-                                                .foregroundStyle(.green)
-                                                .fontWeight(.medium)
-                                            if let lastUpdate = settings.lastTargetUpdateTime {
-                                                Text("Last adjusted: \(lastUpdate.formatted(date: .abbreviated, time: .shortened))")
-                                                    .font(.system(size: 10))
-                                                    .foregroundStyle(.secondary)
-                                            } else {
-                                                Text("Last adjusted: recently")
-                                                    .font(.system(size: 10))
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                        }
-                                    }
-                                    .padding(.top, 2)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .padding()
-                        .background(Color(.secondarySystemGroupedBackground))
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
-                        .padding(.horizontal)
-                    }
-                }
+                weightGoalProgressSection
                 
-                // 1b. Calorie Target History Section (Only if adaptive targets enabled)
-                if settings.useAdaptiveCalorieTarget {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Daily Target History")
-                            .font(.headline)
-                            .padding(.horizontal)
-                        
-                        VStack(spacing: 16) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                if let selected = selectedTargetPoint {
-                                    Text("\(selected.date.formatted(date: .abbreviated, time: .omitted)): **\(selected.targetCalories) cal**")
-                                        .font(.caption)
-                                        .foregroundStyle(.orange)
-                                        .transition(.opacity)
-                                } else {
-                                    if hasTargetHistory {
-                                        Text("Hold & drag graph to scrub values")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    } else {
-                                        Text("💡 Target history will show daily adjustments over time (currently showing preview)")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                
-                                Chart {
-                                    ForEach(targetChartData) { point in
-                                        LineMark(
-                                            x: .value("Date", point.date, unit: .day),
-                                            y: .value("Target", point.targetCalories)
-                                        )
-                                        .foregroundStyle(Color.orange.gradient)
-                                        .interpolationMethod(.catmullRom)
-                                        .lineStyle(StrokeStyle(lineWidth: 3))
-                                        
-                                        PointMark(
-                                            x: .value("Date", point.date, unit: .day),
-                                            y: .value("Target", point.targetCalories)
-                                        )
-                                        .foregroundStyle(.orange)
-                                        .symbolSize(30)
-                                    }
-                                    
-                                    // Scrubbing indicator
-                                    if let selected = selectedTargetPoint {
-                                        RuleMark(
-                                            x: .value("Date", selected.date)
-                                        )
-                                        .foregroundStyle(.secondary.opacity(0.4))
-                                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 2]))
-                                        
-                                        PointMark(
-                                            x: .value("Date", selected.date),
-                                            y: .value("Target", selected.targetCalories)
-                                        )
-                                        .foregroundStyle(.orange)
-                                        .symbolSize(100)
-                                    }
-                                }
-                                .frame(height: 140)
-                                .chartYScale(domain: targetChartDomain)
-                                .chartXAxis {
-                                    AxisMarks(values: .stride(by: .day, count: 7)) { value in
-                                        AxisGridLine()
-                                        AxisValueLabel(format: .dateTime.day().month())
-                                    }
-                                }
-                                .chartOverlay { proxy in
-                                    GeometryReader { geo in
-                                        Rectangle()
-                                            .fill(.clear)
-                                            .contentShape(Rectangle())
-                                            .gesture(
-                                                DragGesture(minimumDistance: 0)
-                                                    .onChanged { value in
-                                                        let xLocation = value.location.x
-                                                        if let date: Date = proxy.value(atX: xLocation) {
-                                                            if let closest = targetChartData.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) }) {
-                                                                selectedTargetPoint = closest
-                                                            }
-                                                        }
-                                                    }
-                                                    .onEnded { _ in
-                                                        selectedTargetPoint = nil
-                                                    }
-                                            )
-                                    }
-                                }
-                                .padding(.vertical, 8)
-                            }
-                        }
-                        .padding()
-                        .background(Color(.secondarySystemGroupedBackground))
-                        .cornerRadius(16)
-                        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
-                        .padding(.horizontal)
-                    }
-                }
+                dailyTargetHistorySection
                 
                 // 2. Calorie Intake & Trends Section
                 VStack(alignment: .leading, spacing: 12) {
@@ -798,9 +954,29 @@ struct StatsView: View {
         .onAppear {
             syncWeightAndHistory()
         }
+        .sheet(isPresented: $showWeightGoalSetup, onDismiss: {
+            settings.dailyCalorieTarget = calorieTarget
+            settings.proteinTarget = proteinTarget
+            settings.carbsTarget = carbsTarget
+            settings.fatTarget = fatTarget
+            settings.saveOrUpdateTodayTargetLog()
+        }) {
+            CalorieTargetSetupView(
+                dailyCalorieTarget: $calorieTarget,
+                proteinTarget: $proteinTarget,
+                carbsTarget: $carbsTarget,
+                fatTarget: $fatTarget,
+                isOnboarding: false
+            )
+        }
     }
     
     private func syncWeightAndHistory() {
+        calorieTarget = settings.dailyCalorieTarget
+        proteinTarget = settings.proteinTarget
+        carbsTarget = settings.carbsTarget
+        fatTarget = settings.fatTarget
+        
         if healthKitManager.isAuthorized {
             healthSyncing = true
             healthKitManager.fetchLatestWeight { _ in

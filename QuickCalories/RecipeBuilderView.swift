@@ -299,8 +299,16 @@ struct RecipeBuilderView: View {
 struct IngredientSelectorView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \SavedFood.foodName) private var savedFoods: [SavedFood]
+    @State private var searchText = ""
     
     var onSelect: (SavedFood) -> Void
+    
+    private var filteredFoods: [SavedFood] {
+        if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+            return savedFoods
+        }
+        return savedFoods.filter { $0.foodName.localizedCaseInsensitiveContains(searchText) }
+    }
     
     var body: some View {
         NavigationStack {
@@ -314,7 +322,7 @@ struct IngredientSelectorView: View {
                     }
                 } else {
                     List {
-                        ForEach(savedFoods) { food in
+                        ForEach(filteredFoods) { food in
                             Button {
                                 onSelect(food)
                                 dismiss()
@@ -336,6 +344,7 @@ struct IngredientSelectorView: View {
             }
             .navigationTitle("Select Food")
             .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $searchText, prompt: "Search saved foods...")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") {

@@ -13,6 +13,7 @@ struct ImportSavedFoodView: View {
     @Environment(\.modelContext) private var modelContext
     
     let food: SavedFood
+    var date: Date? = nil
     let onImportComplete: () -> Void
     
     var body: some View {
@@ -35,7 +36,7 @@ struct ImportSavedFoodView: View {
                         .font(.title2)
                         .fontWeight(.bold)
                     
-                    Text("You scanned a food shared by another user. Would you like to add it to your library?")
+                    Text("You scanned a food shared by another user. Choose an action below.")
                         .font(.body)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -77,14 +78,26 @@ struct ImportSavedFoodView: View {
                 
                 VStack(spacing: 12) {
                     Button {
-                        importFood()
+                        logImmediately()
                     } label: {
-                        Text("Add to Saved Foods")
+                        Text("Log Food Immediately")
                             .font(.headline)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.accentColor)
+                            .background(Color.purple)
+                            .cornerRadius(12)
+                    }
+                    
+                    Button {
+                        importFood()
+                    } label: {
+                        Text("Add to Saved Foods Library")
+                            .font(.headline)
+                            .foregroundColor(Color.accentColor)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.accentColor.opacity(0.1))
                             .cornerRadius(12)
                     }
                     
@@ -103,6 +116,30 @@ struct ImportSavedFoodView: View {
         }
     }
     
+    private func logImmediately() {
+        let dateContext = date ?? Date()
+        let smartTimestamp = adjustTimestampForDateContext(dateContext)
+        
+        let entry = FoodEntry(
+            foodName: food.foodName,
+            calories: food.calories,
+            protein: food.protein,
+            carbs: food.carbs,
+            fat: food.fat,
+            servings: 1.0,
+            timestamp: smartTimestamp
+        )
+        
+        modelContext.insert(entry)
+        DailyTargetLog.ensureTargetLog(for: smartTimestamp, modelContext: modelContext)
+        
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+        
+        onImportComplete()
+        dismiss()
+    }
+    
     private func importFood() {
         // Insert into SwiftData context
         modelContext.insert(food)
@@ -112,6 +149,26 @@ struct ImportSavedFoodView: View {
         
         onImportComplete()
         dismiss()
+    }
+    
+    private func adjustTimestampForDateContext(_ date: Date) -> Date {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        if calendar.isDateInToday(date) {
+            return now
+        }
+        
+        if date > now {
+            return calendar.startOfDay(for: date)
+        }
+        
+        var components = calendar.dateComponents([.year, .month, .day], from: date)
+        components.hour = 23
+        components.minute = 59
+        components.second = 59
+        
+        return calendar.date(from: components) ?? date
     }
 }
 

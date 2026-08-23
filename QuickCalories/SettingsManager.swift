@@ -32,24 +32,36 @@ final class SettingsManager {
     var dailyCalorieTarget: Int = 2000 {
         didSet {
             UserDefaults.standard.set(dailyCalorieTarget, forKey: "dailyCalorieTarget")
+            if !useAdaptiveCalorieTarget {
+                preAdaptiveCalorieTarget = dailyCalorieTarget
+            }
         }
     }
     
     var proteinTarget: Double = 150.0 {
         didSet {
             UserDefaults.standard.set(proteinTarget, forKey: "proteinTarget")
+            if !useAdaptiveCalorieTarget {
+                preAdaptiveProteinTarget = proteinTarget
+            }
         }
     }
     
     var carbsTarget: Double = 200.0 {
         didSet {
             UserDefaults.standard.set(carbsTarget, forKey: "carbsTarget")
+            if !useAdaptiveCalorieTarget {
+                preAdaptiveCarbsTarget = carbsTarget
+            }
         }
     }
     
     var fatTarget: Double = 67.0 {
         didSet {
             UserDefaults.standard.set(fatTarget, forKey: "fatTarget")
+            if !useAdaptiveCalorieTarget {
+                preAdaptiveFatTarget = fatTarget
+            }
         }
     }
     
@@ -139,6 +151,21 @@ final class SettingsManager {
     var useAdaptiveCalorieTarget: Bool = false {
         didSet {
             UserDefaults.standard.set(useAdaptiveCalorieTarget, forKey: "useAdaptiveCalorieTarget")
+            
+            if useAdaptiveCalorieTarget && !oldValue {
+                // Save current target settings when turning adaptive target ON
+                preAdaptiveCalorieTarget = dailyCalorieTarget
+                preAdaptiveProteinTarget = proteinTarget
+                preAdaptiveCarbsTarget = carbsTarget
+                preAdaptiveFatTarget = fatTarget
+            } else if !useAdaptiveCalorieTarget && oldValue {
+                // Restore pre-adaptive target settings when turning adaptive target OFF
+                dailyCalorieTarget = preAdaptiveCalorieTarget
+                proteinTarget = preAdaptiveProteinTarget
+                carbsTarget = preAdaptiveCarbsTarget
+                fatTarget = preAdaptiveFatTarget
+                saveOrUpdateTodayTargetLog()
+            }
         }
     }
     
@@ -209,6 +236,36 @@ final class SettingsManager {
         }
     }
     
+    var autoCloseFoodMenu: Bool = true {
+        didSet {
+            UserDefaults.standard.set(autoCloseFoodMenu, forKey: "autoCloseFoodMenu")
+        }
+    }
+    
+    var preAdaptiveCalorieTarget: Int = 2000 {
+        didSet {
+            UserDefaults.standard.set(preAdaptiveCalorieTarget, forKey: "preAdaptiveCalorieTarget")
+        }
+    }
+    
+    var preAdaptiveProteinTarget: Double = 150.0 {
+        didSet {
+            UserDefaults.standard.set(preAdaptiveProteinTarget, forKey: "preAdaptiveProteinTarget")
+        }
+    }
+    
+    var preAdaptiveCarbsTarget: Double = 200.0 {
+        didSet {
+            UserDefaults.standard.set(preAdaptiveCarbsTarget, forKey: "preAdaptiveCarbsTarget")
+        }
+    }
+    
+    var preAdaptiveFatTarget: Double = 67.0 {
+        didSet {
+            UserDefaults.standard.set(preAdaptiveFatTarget, forKey: "preAdaptiveFatTarget")
+        }
+    }
+    
     private init() {
         // Load saved values or use defaults
         let savedCalories = UserDefaults.standard.integer(forKey: "dailyCalorieTarget")
@@ -255,6 +312,20 @@ final class SettingsManager {
         }
         self.isManualTarget = UserDefaults.standard.bool(forKey: "isManualTarget")
         self.pendingTargetUpdateAlert = UserDefaults.standard.string(forKey: "pendingTargetUpdateAlert")
+        
+        self.autoCloseFoodMenu = UserDefaults.standard.object(forKey: "autoCloseFoodMenu") != nil ? UserDefaults.standard.bool(forKey: "autoCloseFoodMenu") : true
+        
+        self.preAdaptiveCalorieTarget = UserDefaults.standard.integer(forKey: "preAdaptiveCalorieTarget")
+        self.preAdaptiveProteinTarget = UserDefaults.standard.double(forKey: "preAdaptiveProteinTarget")
+        self.preAdaptiveCarbsTarget = UserDefaults.standard.double(forKey: "preAdaptiveCarbsTarget")
+        self.preAdaptiveFatTarget = UserDefaults.standard.double(forKey: "preAdaptiveFatTarget")
+        
+        if self.preAdaptiveCalorieTarget == 0 {
+            self.preAdaptiveCalorieTarget = self.dailyCalorieTarget
+            self.preAdaptiveProteinTarget = self.proteinTarget
+            self.preAdaptiveCarbsTarget = self.carbsTarget
+            self.preAdaptiveFatTarget = self.fatTarget
+        }
         
         let savedWeightDays = UserDefaults.standard.integer(forKey: "weightAverageDays")
         self.weightAverageDays = savedWeightDays > 0 ? savedWeightDays : 5
@@ -433,11 +504,33 @@ extension SettingsManager {
                 
                 // Deficit target projection:
                 let daysRemaining = calendar.dateComponents([.day], from: Date(), to: self.targetDate).day ?? 30
-                let weeksRemaining = max(1.0, Double(daysRemaining) / 7.0)
                 let weightToLoseKg = currentWeight - self.targetWeight
                 let weightToLoseLbs = weightToLoseKg * 2.20462
-                let weeklyLbsTarget = weightToLoseLbs / weeksRemaining
-                let targetDailyDeficit = (weeklyLbsTarget * 3500.0) / 7.0
+                
+                var targetDailyDeficit: Double = 0.0
+                if daysRemaining <= 0 {
+                    // Timeframe expired or target date is today
+                    if self.targetWeight > self.startWeight {
+                        // Weight gain goal
+                        if currentWeight >= self.targetWeight {
+                            targetDailyDeficit = 0.0 // Goal achieved!
+                        } else {
+                            targetDailyDeficit = -300.0 // Safe default surplus of 300 calories/day
+                        }
+                    } else {
+                        // Weight loss goal (or maintain)
+                        if currentWeight <= self.targetWeight {
+                            targetDailyDeficit = 0.0 // Goal achieved!
+                        } else {
+                            targetDailyDeficit = 500.0 // Safe default deficit of 500 calories/day
+                        }
+                    }
+                } else {
+                    // Timeframe active
+                    let weeksRemaining = max(1.0, Double(daysRemaining) / 7.0)
+                    let weeklyLbsTarget = weightToLoseLbs / weeksRemaining
+                    targetDailyDeficit = (weeklyLbsTarget * 3500.0) / 7.0
+                }
                 
                 let suggested = max(1200, Int(constrainedTDEE - targetDailyDeficit))
                 

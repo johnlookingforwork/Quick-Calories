@@ -295,7 +295,7 @@ struct FoodLoggingHubView: View {
                 }
             }
             .sheet(item: $importingFood) { food in
-                ImportSavedFoodView(food: food) {
+                ImportSavedFoodView(food: food, date: date) {
                     // Success callback
                 }
             }
@@ -553,7 +553,11 @@ struct FoodLoggingHubView: View {
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
         
-        dismiss()
+        itemToLog = nil
+        
+        if SettingsManager.shared.autoCloseFoodMenu {
+            dismiss()
+        }
     }
     
     private func adjustTimestampForDateContext(_ date: Date) -> Date {

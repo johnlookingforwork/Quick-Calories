@@ -30,6 +30,7 @@ struct SettingsView: View {
     @State private var showWeightGoalSetup = false
     @State private var versionTapCount = 0
     @State private var weightAverageDays = 5
+    @State private var autoCloseFoodMenu = true
     
     private var healthKitManager = HealthKitManager.shared
     private var settings = SettingsManager.shared
@@ -164,6 +165,8 @@ struct SettingsView: View {
                         loadSettings()
                     }
                 ))
+                
+                Toggle("Auto-Close Food Menu", isOn: $autoCloseFoodMenu)
             }
             
             // Integrations & Access Section
@@ -353,6 +356,9 @@ struct SettingsView: View {
         .onChange(of: weightAverageDays) { _, newValue in
             SettingsManager.shared.weightAverageDays = newValue
         }
+        .onChange(of: autoCloseFoodMenu) { _, newValue in
+            SettingsManager.shared.autoCloseFoodMenu = newValue
+        }
     }
     
     private func loadSettings() {
@@ -363,6 +369,7 @@ struct SettingsView: View {
         fatTarget = settings.fatTarget
         dietMode = settings.dietMode
         weightAverageDays = settings.weightAverageDays
+        autoCloseFoodMenu = settings.autoCloseFoodMenu
     }
     
     private func recalculateTargets() {

@@ -11,6 +11,7 @@ import SwiftData
 struct WeekScrollView: View {
     @Query private var allEntries: [FoodEntry]
     @Query private var allWorkouts: [WorkoutEntry]
+    @Query private var targetLogs: [DailyTargetLog]
     @Binding var navigateToHistory: Bool
     @Binding var selectedHistoryDate: Date?
     
@@ -36,9 +37,17 @@ struct WeekScrollView: View {
         return foodCals - workoutCals
     }
     
+    private func targetForDate(_ date: Date) -> Int {
+        let dayStart = calendar.startOfDay(for: date)
+        if let log = targetLogs.first(where: { calendar.isDate($0.date, inSameDayAs: dayStart) }) {
+            return log.calories
+        }
+        return SettingsManager.shared.dailyCalorieTarget
+    }
+    
     private func targetMet(_ date: Date) -> Bool {
         let netCals = caloriesForDate(date)
-        let target = SettingsManager.shared.dailyCalorieTarget
+        let target = targetForDate(date)
         return netCals >= Int(Double(target) * 0.9) && netCals <= Int(Double(target) * 1.1)
     }
     
@@ -49,7 +58,7 @@ struct WeekScrollView: View {
                     DayCard(
                         date: date,
                         calories: caloriesForDate(date),
-                        target: SettingsManager.shared.dailyCalorieTarget,
+                        target: targetForDate(date),
                         metGoal: targetMet(date)
                     )
                     .onTapGesture {
