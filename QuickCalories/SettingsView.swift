@@ -311,7 +311,9 @@ struct SettingsView: View {
         .sheet(isPresented: $showDataSources) {
             DataSourcesView()
         }
-        .sheet(isPresented: $showWeightGoalSetup) {
+        .sheet(isPresented: $showWeightGoalSetup, onDismiss: {
+            loadSettings()
+        }) {
             WeightGoalSetupView()
         }
         .confirmationDialog(
