@@ -471,9 +471,9 @@ extension SettingsManager {
                 let changeKg = self.calculateWeightChange(history: history, windowDays: windowDays)
                 guard let changeKg = changeKg else { return }
                 
-                // Get calorie average over windowDays:
+                // Get calorie average over windowDays starting from yesterday (excluding today's incomplete logs):
                 var totals: [Date: Int] = [:]
-                for offset in 0..<windowDays {
+                for offset in 1...windowDays {
                     if let date = calendar.date(byAdding: .day, value: -offset, to: today) {
                         totals[date] = 0
                     }

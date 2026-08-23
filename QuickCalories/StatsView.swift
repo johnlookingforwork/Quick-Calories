@@ -36,15 +36,15 @@ struct StatsView: View {
         return String(format: "%.1f %@", displayVal, settings.useMetricSystem ? "kg" : "lbs")
     }
     
-    // Group entries by date and get calories/macros for the last 30 days
+    // Group entries by date and get calories/macros for the last 30 days (excluding today)
     private var last30DaysDailyTotals: [Date: (calories: Int, protein: Double, carbs: Double, fat: Double)] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         
         var totals: [Date: (calories: Int, protein: Double, carbs: Double, fat: Double)] = [:]
         
-        // Initialize all 30 days with zeros
-        for offset in 0..<30 {
+        // Initialize 30 days starting from yesterday to exclude today's incomplete data
+        for offset in 1...30 {
             if let date = calendar.date(byAdding: .day, value: -offset, to: today) {
                 totals[date] = (0, 0.0, 0.0, 0.0)
             }
