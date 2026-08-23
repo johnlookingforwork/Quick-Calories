@@ -173,6 +173,10 @@ struct StatsView: View {
     
     // Suggested dynamic target based on remaining time and goal weight
     private var suggestedCalorieTarget: Int {
+        if settings.useAdaptiveCalorieTarget {
+            return settings.dailyCalorieTarget
+        }
+        
         let targetWeightKg = settings.targetWeight
         let targetDate = settings.targetDate
         let currentWeightKg = averageWeightSelectedDays
