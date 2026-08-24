@@ -224,6 +224,12 @@ final class SettingsManager {
         }
     }
     
+    var hiddenRecentFoods: Set<String> = [] {
+        didSet {
+            UserDefaults.standard.set(Array(hiddenRecentFoods), forKey: "hiddenRecentFoods")
+        }
+    }
+    
     var hasActiveSubscription: Bool = false {
         didSet {
             UserDefaults.standard.set(hasActiveSubscription, forKey: "hasActiveSubscription")
@@ -329,6 +335,9 @@ final class SettingsManager {
         
         let savedWeightDays = UserDefaults.standard.integer(forKey: "weightAverageDays")
         self.weightAverageDays = savedWeightDays > 0 ? savedWeightDays : 5
+        
+        let savedHiddenRecents = UserDefaults.standard.stringArray(forKey: "hiddenRecentFoods") ?? []
+        self.hiddenRecentFoods = Set(savedHiddenRecents)
         
         // Migration: Detect if they already had a manual target before this update
         if !UserDefaults.standard.bool(forKey: "hasConfiguredManualTargetFlag") {

@@ -49,7 +49,7 @@ struct FoodLoggingHubView: View {
         
         for entry in allEntries {
             let key = entry.foodName.lowercased()
-            if !seen.contains(key) {
+            if !seen.contains(key) && !SettingsManager.shared.hiddenRecentFoods.contains(key) {
                 seen.insert(key)
                 
                 // Calculate single serving base macros
@@ -581,16 +581,11 @@ struct FoodLoggingHubView: View {
     }
     
     private func deleteRecentFood(_ item: LoggableItem) {
-        let nameToDelete = item.name.lowercased()
-        let descriptor = FetchDescriptor<FoodEntry>()
-        if let entries = try? modelContext.fetch(descriptor) {
-            for entry in entries {
-                if entry.foodName.lowercased() == nameToDelete {
-                    modelContext.delete(entry)
-                }
-            }
-            try? modelContext.save()
-        }
+        let nameToHide = item.name.lowercased()
+        SettingsManager.shared.hiddenRecentFoods.insert(nameToHide)
+        
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
     }
     
     private func moveSavedFoods(from source: IndexSet, to destination: Int) {
