@@ -201,8 +201,12 @@ struct EditEntryView: View {
                                     .font(.headline)
                                 Spacer()
                                 Text("\(calculatedValues.calories)")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
+                                    .font(.title)
+                                    .fontWeight(.black)
+                                    .foregroundStyle(.primary)
+                                Text("cal")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
                             }
                             
                             Divider()
