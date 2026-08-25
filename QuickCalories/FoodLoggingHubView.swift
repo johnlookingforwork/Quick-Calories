@@ -47,7 +47,13 @@ struct FoodLoggingHubView: View {
         var seen = Set<String>()
         var result: [LoggableItem] = []
         
-        for entry in allEntries {
+        let sortedEntries = allEntries.sorted { 
+            let dateA = $0.createdAt ?? $0.timestamp
+            let dateB = $1.createdAt ?? $1.timestamp
+            return dateA > dateB
+        }
+        
+        for entry in sortedEntries {
             let key = entry.foodName.lowercased()
             if !seen.contains(key) && !SettingsManager.shared.hiddenRecentFoods.contains(key) {
                 seen.insert(key)

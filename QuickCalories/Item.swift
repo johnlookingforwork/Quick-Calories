@@ -19,6 +19,7 @@ final class FoodEntry {
     var servings: Double
     var timestamp: Date
     var recipeDescription: String? = nil
+    var createdAt: Date? = nil
     
     init(foodName: String, calories: Int, protein: Double, carbs: Double, fat: Double, servings: Double = 1.0, timestamp: Date = Date(), recipeDescription: String? = nil) {
         self.id = UUID()
@@ -30,6 +31,7 @@ final class FoodEntry {
         self.servings = servings
         self.timestamp = timestamp
         self.recipeDescription = recipeDescription
+        self.createdAt = Date()
     }
 }
 @Model
