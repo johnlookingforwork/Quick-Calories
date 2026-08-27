@@ -39,9 +39,26 @@ struct WeekScrollView: View {
     
     private func targetForDate(_ date: Date) -> Int {
         let dayStart = calendar.startOfDay(for: date)
+        
+        // 1. Try to find a log matching the date
         if let log = targetLogs.first(where: { calendar.isDate($0.date, inSameDayAs: dayStart) }) {
             return log.calories
         }
+        
+        // 2. Fallback to the latest log that is BEFORE the date (in case of gaps/non-logged days)
+        let priorLogs = targetLogs.filter { $0.date < dayStart }.sorted(by: { $0.date > $1.date })
+        if let nearestPriorLog = priorLogs.first {
+            return nearestPriorLog.calories
+        }
+        
+        // 3. Fallback to the earliest log if the date is BEFORE the earliest log
+        if let earliestLog = targetLogs.sorted(by: { $0.date < $1.date }).first {
+            if dayStart < earliestLog.date {
+                return earliestLog.calories
+            }
+        }
+        
+        // 4. Fallback to active settings target
         return SettingsManager.shared.dailyCalorieTarget
     }
     
