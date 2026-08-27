@@ -64,8 +64,23 @@ struct WeekScrollView: View {
     
     private func targetMet(_ date: Date) -> Bool {
         let netCals = caloriesForDate(date)
+        if netCals == 0 { return false }
+        
         let target = targetForDate(date)
-        return netCals >= Int(Double(target) * 0.9) && netCals <= Int(Double(target) * 1.1)
+        let percentage = Double(netCals) / Double(target)
+        let dietMode = SettingsManager.shared.dietMode
+        
+        let deviation: Double
+        switch dietMode {
+        case .normal:
+            deviation = abs(percentage - 1.0)
+        case .cut:
+            deviation = max(0.0, percentage - 1.0)
+        case .bulk:
+            deviation = max(0.0, 1.0 - percentage)
+        }
+        
+        return deviation <= 0.10
     }
     
     var body: some View {
@@ -107,13 +122,24 @@ struct DayCard: View {
         }
         
         let percentage = Double(calories) / Double(target)
+        let dietMode = SettingsManager.shared.dietMode
         
-        if percentage >= 0.9 && percentage <= 1.1 {
-            return Color.green  // Hit goal (90-110%)
-        } else if percentage >= 0.75 && percentage < 0.9 {
-            return Color.orange  // Almost there (75-90%)
+        let deviation: Double
+        switch dietMode {
+        case .normal:
+            deviation = abs(percentage - 1.0)
+        case .cut:
+            deviation = max(0.0, percentage - 1.0)
+        case .bulk:
+            deviation = max(0.0, 1.0 - percentage)
+        }
+        
+        if deviation <= 0.10 {
+            return Color.green  // Hit goal (within 10%)
+        } else if deviation <= 0.15 {
+            return Color.orange  // Almost there (within 15%)
         } else {
-            return Color.red  // Missed goal
+            return Color.red  // Missed goal (> 15%)
         }
     }
     
