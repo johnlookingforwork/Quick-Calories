@@ -279,10 +279,18 @@ struct FoodLoggingHubView: View {
             }
             // Sheet triggers
             .sheet(isPresented: $showAILog) {
-                AILogView(date: date, initialTextInput: searchText, initialInputMode: searchText.isEmpty ? nil : .text)
+                AILogView(date: date, initialTextInput: searchText, initialInputMode: searchText.isEmpty ? nil : .text) {
+                    if SettingsManager.shared.autoCloseFoodMenu {
+                        dismiss()
+                    }
+                }
             }
             .sheet(isPresented: $showManualAdd) {
-                ManualAddView(date: date)
+                ManualAddView(date: date) {
+                    if SettingsManager.shared.autoCloseFoodMenu {
+                        dismiss()
+                    }
+                }
             }
             .sheet(isPresented: $showRecipeBuilder) {
                 RecipeBuilderView()
@@ -302,7 +310,9 @@ struct FoodLoggingHubView: View {
             }
             .sheet(item: $importingFood) { food in
                 ImportSavedFoodView(food: food, date: date) {
-                    // Success callback
+                    if SettingsManager.shared.autoCloseFoodMenu {
+                        dismiss()
+                    }
                 }
             }
             .alert("Scanning Error", isPresented: $showScanError) {

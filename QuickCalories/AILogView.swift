@@ -41,10 +41,13 @@ struct AILogView: View {
     @FocusState private var isTextFieldFocused: Bool
     @FocusState private var isPhotoContextFocused: Bool
     
-    init(date: Date, initialTextInput: String = "", initialInputMode: AIInputMode? = nil) {
+    var onLogComplete: (() -> Void)? = nil
+    
+    init(date: Date, initialTextInput: String = "", initialInputMode: AIInputMode? = nil, onLogComplete: (() -> Void)? = nil) {
         self.date = date
         self._inputMode = State(initialValue: initialInputMode)
         self._foodInput = State(initialValue: initialTextInput)
+        self.onLogComplete = onLogComplete
     }
     
     var body: some View {
@@ -264,6 +267,7 @@ struct AILogView: View {
                 ConfirmAILogView(nutrition: wrapper.data, date: date) {
                     // Dismiss the parent AILogView after logging
                     dismiss()
+                    onLogComplete?()
                 }
             }
             .onChange(of: photoPickerItem) { _, newValue in

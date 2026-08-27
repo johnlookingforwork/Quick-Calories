@@ -13,6 +13,7 @@ struct ManualAddView: View {
     @Environment(\.modelContext) private var modelContext
     
     let date: Date
+    var onLogComplete: (() -> Void)? = nil
     
     @State private var foodName = ""
     @State private var calories = ""
@@ -283,6 +284,7 @@ struct ManualAddView: View {
         generator.impactOccurred()
         
         dismiss()
+        onLogComplete?()
     }
     
     /// Adjusts timestamp based on whether logging for past or future
