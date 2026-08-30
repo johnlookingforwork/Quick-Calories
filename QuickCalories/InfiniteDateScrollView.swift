@@ -17,6 +17,21 @@ struct InfiniteDateScrollView: View {
     var settings = SettingsManager.shared
     private let calendar = Calendar.current
     
+    init(selectedDate: Binding<Date>) {
+        self._selectedDate = selectedDate
+        
+        let ninetyDaysAgo = Calendar.current.date(byAdding: .day, value: -90, to: Date()) ?? Date()
+        _allEntries = Query(filter: #Predicate<FoodEntry> { entry in
+            entry.timestamp >= ninetyDaysAgo
+        })
+        _allWorkouts = Query(filter: #Predicate<WorkoutEntry> { workout in
+            workout.timestamp >= ninetyDaysAgo
+        })
+        _targetLogs = Query(filter: #Predicate<DailyTargetLog> { log in
+            log.date >= ninetyDaysAgo
+        })
+    }
+    
     // Generate dates from 90 days ago to 30 days in the future
     private var dateRange: [Date] {
         let startOffset = -90

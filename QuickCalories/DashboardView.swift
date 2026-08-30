@@ -27,6 +27,19 @@ struct DashboardView: View {
     @State private var settings = SettingsManager.shared
     private let calendar = Calendar.current
     
+    init() {
+        let ninetyDaysAgo = Calendar.current.date(byAdding: .day, value: -90, to: Date()) ?? Date()
+        _allEntries = Query(filter: #Predicate<FoodEntry> { entry in
+            entry.timestamp >= ninetyDaysAgo
+        })
+        _allWorkouts = Query(filter: #Predicate<WorkoutEntry> { workout in
+            workout.timestamp >= ninetyDaysAgo
+        })
+        _allTargetLogs = Query(filter: #Predicate<DailyTargetLog> { log in
+            log.date >= ninetyDaysAgo
+        })
+    }
+    
     private var isViewingToday: Bool {
         calendar.isDateInToday(selectedDate)
     }

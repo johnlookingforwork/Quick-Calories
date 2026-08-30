@@ -32,16 +32,12 @@ struct QuickCaloriesApp: App {
         }
     }()
     
-    init() {
-        print("✅ QuickCaloriesApp initializing...")
-        SettingsManager.shared.modelContainer = sharedModelContainer
-    }
-
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .onAppear {
-                    print("✅ ContentView appeared")
+                    SettingsManager.shared.modelContainer = sharedModelContainer
+                    print("✅ ContentView appeared, SettingsManager modelContainer configured")
                 }
         }
         .modelContainer(sharedModelContainer)
