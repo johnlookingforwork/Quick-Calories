@@ -10,7 +10,7 @@ import SwiftData
 
 @main
 struct QuickCaloriesApp: App {
-    var sharedModelContainer: ModelContainer = {
+    static let sharedModelContainer: ModelContainer = {
         let schema = Schema([
             FoodEntry.self,
             SavedFood.self,
@@ -27,8 +27,13 @@ struct QuickCaloriesApp: App {
             print("✅ ModelContainer created successfully")
             return container
         } catch {
-            print("❌ FATAL: Could not create ModelContainer: \(error)")
-            fatalError("Could not create ModelContainer: \(error)")
+            print("⚠️ Could not create persistent ModelContainer: \(error). Falling back to in-memory container.")
+            do {
+                let fallbackConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                return try ModelContainer(for: schema, configurations: [fallbackConfig])
+            } catch {
+                fatalError("Could not create fallback ModelContainer: \(error)")
+            }
         }
     }()
     
@@ -36,10 +41,10 @@ struct QuickCaloriesApp: App {
         WindowGroup {
             ContentView()
                 .onAppear {
-                    SettingsManager.shared.modelContainer = sharedModelContainer
+                    SettingsManager.shared.modelContainer = Self.sharedModelContainer
                     print("✅ ContentView appeared, SettingsManager modelContainer configured")
                 }
         }
-        .modelContainer(sharedModelContainer)
+        .modelContainer(Self.sharedModelContainer)
     }
 }

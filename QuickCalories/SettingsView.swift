@@ -48,20 +48,52 @@ struct SettingsView: View {
             // Your Plan Section (Calorie Target Card + Summary Rows)
             Section("Your Plan") {
                 VStack(spacing: 16) {
-                    VStack(spacing: 4) {
-                        Text("\(calorieTarget)")
-                            .font(.system(size: 48, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                        
-                        Text("daily calorie target")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    if settings.useAdaptiveCalorieTarget && settings.adaptiveCalorieMode != .disabled {
+                        VStack(spacing: 4) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "bolt.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.yellow)
+                                Text("Today's Adaptive Target")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.yellow)
+                            }
+                            
+                            Text("\(calorieTarget)")
+                                .font(.system(size: 48, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                            
+                            let baseTarget = settings.preAdaptiveCalorieTarget > 0 ? settings.preAdaptiveCalorieTarget : settings.dailyCalorieTarget
+                            let diff = calorieTarget - baseTarget
+                            let diffString = diff >= 0 ? "+\(diff)" : "\(diff)"
+                            
+                            Text("Base Target: \(baseTarget) cal  •  \(diffString) cal adjustment")
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(Capsule())
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 2)
+                        }
+                    } else {
+                        VStack(spacing: 4) {
+                            Text("\(calorieTarget)")
+                                .font(.system(size: 48, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                            
+                            Text("daily calorie target")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     
                     HStack(spacing: 12) {
-                        MacroTargetBadge(name: "Protein", amount: proteinTarget, color: .red)
-                        MacroTargetBadge(name: "Carbs", amount: carbsTarget, color: .blue)
-                        MacroTargetBadge(name: "Fat", amount: fatTarget, color: .yellow)
+                        MacroTargetBadge(name: "Protein", amount: proteinTarget, color: .red, isPreserved: settings.useAdaptiveCalorieTarget && settings.preservedMacroOption == .preserveProtein)
+                        MacroTargetBadge(name: "Carbs", amount: carbsTarget, color: .blue, isPreserved: settings.useAdaptiveCalorieTarget && settings.preservedMacroOption == .preserveCarbs)
+                        MacroTargetBadge(name: "Fat", amount: fatTarget, color: .yellow, isPreserved: settings.useAdaptiveCalorieTarget && settings.preservedMacroOption == .preserveFat)
                     }
                     
                     Divider()
@@ -72,7 +104,7 @@ struct SettingsView: View {
                     } label: {
                         HStack {
                             Spacer()
-                            Label("Adjust Calories & Macros", systemImage: "slider.horizontal.3")
+                            Label("Adjust Base Calories & Macros", systemImage: "slider.horizontal.3")
                                 .fontWeight(.semibold)
                                 .foregroundStyle(Color.accentColor)
                             Spacer()
@@ -130,6 +162,95 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
             }
             
+            // Adaptive Calorie Target Section
+            Section {
+                Picker("Adaptive Strategy", selection: Binding(
+                    get: { settings.adaptiveCalorieMode },
+                    set: { newValue in
+                        settings.adaptiveCalorieMode = newValue
+                        settings.updateAdaptiveCalorieTarget(allEntries: foodEntries)
+                        loadSettings()
+                    }
+                )) {
+                    ForEach(AdaptiveCalorieMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                
+                if settings.adaptiveCalorieMode != .disabled {
+                    Picker("Preserve Macro Target", selection: Binding(
+                        get: { settings.preservedMacroOption },
+                        set: { newValue in
+                            settings.preservedMacroOption = newValue
+                            settings.updateAdaptiveCalorieTarget(allEntries: foodEntries)
+                            loadSettings()
+                        }
+                    )) {
+                        ForEach(PreservedMacroOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                }
+                
+                if settings.adaptiveCalorieMode == .calorieBudget {
+                    Picker("Budget Style", selection: Binding(
+                        get: { settings.calorieBudgetStyle },
+                        set: { newValue in
+                            settings.calorieBudgetStyle = newValue
+                            settings.updateAdaptiveCalorieTarget(allEntries: foodEntries)
+                            loadSettings()
+                        }
+                    )) {
+                        ForEach(CalorieBudgetStyle.allCases) { style in
+                            Text(style.rawValue).tag(style)
+                        }
+                    }
+                    
+                    if settings.calorieBudgetStyle == .fixedWeekly {
+                        Picker("Week Reset Day", selection: Binding(
+                            get: { settings.weekStartDay },
+                            set: { newValue in
+                                settings.weekStartDay = newValue
+                                settings.updateAdaptiveCalorieTarget(allEntries: foodEntries)
+                                loadSettings()
+                            }
+                        )) {
+                            ForEach(WeekStartDay.allCases) { day in
+                                Text(day.name).tag(day)
+                            }
+                        }
+                    }
+                } else if settings.adaptiveCalorieMode == .weightTrend {
+                    Picker("Metabolic Window", selection: Binding(
+                        get: { settings.metabolicWindowDays },
+                        set: { newValue in
+                            settings.metabolicWindowDays = newValue
+                            settings.updateAdaptiveCalorieTarget(allEntries: foodEntries)
+                            loadSettings()
+                        }
+                    )) {
+                        Text("7 Days").tag(7)
+                        Text("14 Days").tag(14)
+                        Text("30 Days").tag(30)
+                    }
+                }
+            } header: {
+                Text("Adaptive Calorie Target")
+            } footer: {
+                switch settings.adaptiveCalorieMode {
+                case .disabled:
+                    Text("Your calorie target remains fixed unless manually adjusted.")
+                case .weightTrend:
+                    Text("Auto-adjusts target dynamically based on your actual scale weight changes and calorie intake over time.")
+                case .calorieBudget:
+                    if settings.calorieBudgetStyle == .fixedWeekly {
+                        Text("Paces your remaining calories for the week based on what you ate earlier, resetting every \(settings.weekStartDay.name). Macros scale according to your preservation preference.")
+                    } else {
+                        Text("Paces your target daily based on a rolling 7-day calorie average. Macros scale according to your preservation preference.")
+                    }
+                }
+            }
+            
             // Preferences Section
             Section("Preferences") {
                 Picker("Diet Mode", selection: $dietMode) {
@@ -142,19 +263,6 @@ struct SettingsView: View {
                     Text("3-Day Average").tag(3)
                     Text("5-Day Average").tag(5)
                     Text("7-Day Average").tag(7)
-                }
-                
-                Picker("Metabolic Window", selection: Binding(
-                    get: { settings.metabolicWindowDays },
-                    set: { newValue in
-                        settings.metabolicWindowDays = newValue
-                        settings.updateAdaptiveCalorieTarget(allEntries: foodEntries)
-                        loadSettings()
-                    }
-                )) {
-                    Text("7 Days").tag(7)
-                    Text("14 Days").tag(14)
-                    Text("30 Days").tag(30)
                 }
                 
                 Toggle("Use Metric System", isOn: Binding(
@@ -387,6 +495,7 @@ struct MacroTargetBadge: View {
     let name: String
     let amount: Double
     let color: Color
+    var isPreserved: Bool = false
     
     var body: some View {
         VStack(spacing: 4) {
@@ -398,6 +507,12 @@ struct MacroTargetBadge: View {
                 Text(name)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                
+                if isPreserved {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.yellow)
+                }
             }
             
             Text("\(Int(amount))g")
@@ -626,7 +741,6 @@ struct WeightGoalSetupView: View {
     @State private var startWeight: Double
     @State private var targetWeight: Double
     @State private var targetDate: Date
-    @State private var useAdaptiveCalorieTarget: Bool
     
     private var settings = SettingsManager.shared
     
@@ -635,7 +749,6 @@ struct WeightGoalSetupView: View {
         _startWeight = State(initialValue: settings.useMetricSystem ? settings.startWeight : settings.startWeight.kgToLbs)
         _targetWeight = State(initialValue: settings.useMetricSystem ? settings.targetWeight : settings.targetWeight.kgToLbs)
         _targetDate = State(initialValue: settings.targetDate)
-        _useAdaptiveCalorieTarget = State(initialValue: settings.useAdaptiveCalorieTarget)
     }
     
     var body: some View {
@@ -666,21 +779,6 @@ struct WeightGoalSetupView: View {
                     
                     DatePicker("Target Date", selection: $targetDate, displayedComponents: .date)
                 }
-                
-                Section {
-                    Toggle(isOn: $useAdaptiveCalorieTarget) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Adaptive Calorie Target")
-                            Text("Auto-adjusts your daily target based on your active metabolic rate.")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                } header: {
-                    Text("Automation")
-                } footer: {
-                    Text("If enabled, the app will update your calorie target daily based on your weight logs and calorie intake. Macronutrient targets (Protein, Carbs, Fat) will automatically scale proportionally to preserve your preferred macro ratio.")
-                }
             }
             .navigationTitle("Setup Weight Goal")
             .navigationBarTitleDisplayMode(.inline)
@@ -703,7 +801,6 @@ struct WeightGoalSetupView: View {
         settings.startWeight = settings.useMetricSystem ? startWeight : startWeight.lbsToKg
         settings.targetWeight = settings.useMetricSystem ? targetWeight : targetWeight.lbsToKg
         settings.targetDate = targetDate
-        settings.useAdaptiveCalorieTarget = useAdaptiveCalorieTarget
         
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)

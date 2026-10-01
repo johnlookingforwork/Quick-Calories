@@ -35,6 +35,9 @@ struct CalorieTargetSetupView: View {
     @State private var targetWeight: String = ""
     @State private var targetDate: Date = Date().addingTimeInterval(60 * 60 * 24 * 30) // +30 days default
     @State private var useAdaptiveCalorieTarget: Bool = false
+    @State private var adaptiveMode: AdaptiveCalorieMode = .disabled
+    @State private var calorieBudgetStyle: CalorieBudgetStyle = .fixedWeekly
+    @State private var weekStartDay: WeekStartDay = .monday
     @State private var syncingHealth = false
     
     // Macro split
@@ -175,6 +178,9 @@ struct CalorieTargetSetupView: View {
                 }
                 targetDate = settings.targetDate
                 useAdaptiveCalorieTarget = settings.useAdaptiveCalorieTarget
+                adaptiveMode = settings.adaptiveCalorieMode
+                calorieBudgetStyle = settings.calorieBudgetStyle
+                weekStartDay = settings.weekStartDay
                 
                 // Pre-populate profile fields if edit mode
                 if !isOnboarding && settings.userAge > 0 {
@@ -537,13 +543,45 @@ struct CalorieTargetSetupView: View {
                     .background(Color(uiColor: .secondarySystemGroupedBackground))
                     .cornerRadius(12)
                 
-                Toggle(isOn: $useAdaptiveCalorieTarget) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Adaptive Calorie Target")
-                            .font(.body)
-                        Text("Auto-adjusts target based on your active metabolic rate")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Adaptive Calorie Target")
+                        .font(.headline)
+                    
+                    Picker("Adaptive Mode", selection: $adaptiveMode) {
+                        ForEach(AdaptiveCalorieMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    
+                    if adaptiveMode == .calorieBudget {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Budget Style")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            
+                            Picker("Budget Style", selection: $calorieBudgetStyle) {
+                                ForEach(CalorieBudgetStyle.allCases) { style in
+                                    Text(style.rawValue).tag(style)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            
+                            if calorieBudgetStyle == .fixedWeekly {
+                                HStack {
+                                    Text("Week Reset Day")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Picker("Week Start Day", selection: $weekStartDay) {
+                                        ForEach(WeekStartDay.allCases) { day in
+                                            Text(day.name).tag(day)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                }
+                            }
+                        }
+                        .padding(.top, 4)
                     }
                 }
                 .padding()
@@ -817,7 +855,7 @@ struct CalorieTargetSetupView: View {
                     .font(.title2)
                     .fontWeight(.bold)
                 
-                Text("Choose your daily calorie goal")
+                Text("Choose your daily calorie target")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -1321,7 +1359,10 @@ struct CalorieTargetSetupView: View {
                     let targetWeightKg = useMetric ? targetWeightDouble : targetWeightDouble.lbsToKg
                     settings.targetWeight = targetWeightKg
                     settings.targetDate = targetDate
-                    settings.useAdaptiveCalorieTarget = useAdaptiveCalorieTarget
+                    settings.adaptiveCalorieMode = adaptiveMode
+                    settings.calorieBudgetStyle = calorieBudgetStyle
+                    settings.weekStartDay = weekStartDay
+                    settings.useAdaptiveCalorieTarget = (adaptiveMode != .disabled)
                     
                     // Set starting weight to the initial weight entered
                     settings.startWeight = weightKg
@@ -1329,7 +1370,10 @@ struct CalorieTargetSetupView: View {
                     // Clear weight goal settings if changed to Maintain
                     settings.targetWeight = 0.0
                     settings.startWeight = 0.0
-                    settings.useAdaptiveCalorieTarget = false
+                    settings.adaptiveCalorieMode = adaptiveMode
+                    settings.calorieBudgetStyle = calorieBudgetStyle
+                    settings.weekStartDay = weekStartDay
+                    settings.useAdaptiveCalorieTarget = (adaptiveMode != .disabled)
                 }
             }
             

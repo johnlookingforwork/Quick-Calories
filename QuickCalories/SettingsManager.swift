@@ -16,6 +16,48 @@ enum DietMode: String, CaseIterable {
     case cut    = "Cut"
 }
 
+enum AdaptiveCalorieMode: String, CaseIterable, Identifiable, Codable {
+    case disabled = "Disabled"
+    case weightTrend = "Weight Trend"
+    case calorieBudget = "Calorie Budget"
+    
+    var id: String { rawValue }
+}
+
+enum CalorieBudgetStyle: String, CaseIterable, Identifiable, Codable {
+    case fixedWeekly = "Fixed Weekly Reset"
+    case rolling7Day = "Rolling 7-Day Average"
+    
+    var id: String { rawValue }
+}
+
+enum WeekStartDay: Int, CaseIterable, Identifiable, Codable {
+    case sunday = 1, monday = 2, tuesday = 3, wednesday = 4, thursday = 5, friday = 6, saturday = 7
+    
+    var id: Int { rawValue }
+    
+    var name: String {
+        switch self {
+        case .sunday: return "Sunday"
+        case .monday: return "Monday"
+        case .tuesday: return "Tuesday"
+        case .wednesday: return "Wednesday"
+        case .thursday: return "Thursday"
+        case .friday: return "Friday"
+        case .saturday: return "Saturday"
+        }
+    }
+}
+
+enum PreservedMacroOption: String, CaseIterable, Identifiable, Codable {
+    case none = "Scale All Ratios"
+    case preserveProtein = "Preserve Protein Target"
+    case preserveCarbs = "Preserve Carbs Target"
+    case preserveFat = "Preserve Fat Target"
+    
+    var id: String { rawValue }
+}
+
 @Observable
 final class SettingsManager {
     static let shared = SettingsManager()
@@ -62,6 +104,22 @@ final class SettingsManager {
             if !useAdaptiveCalorieTarget {
                 preAdaptiveFatTarget = fatTarget
             }
+        }
+    }
+    
+    func updateBaseTargets(calories: Int, protein: Double, carbs: Double, fat: Double) {
+        preAdaptiveCalorieTarget = calories
+        preAdaptiveProteinTarget = protein
+        preAdaptiveCarbsTarget = carbs
+        preAdaptiveFatTarget = fat
+        
+        if !useAdaptiveCalorieTarget {
+            dailyCalorieTarget = calories
+            proteinTarget = protein
+            carbsTarget = carbs
+            fatTarget = fat
+        } else {
+            recalculateMacrosOnly()
         }
     }
     
@@ -148,18 +206,57 @@ final class SettingsManager {
         }
     }
     
+    var adaptiveCalorieMode: AdaptiveCalorieMode = .disabled {
+        didSet {
+            UserDefaults.standard.set(adaptiveCalorieMode.rawValue, forKey: "adaptiveCalorieMode")
+            let shouldBeAdaptive = (adaptiveCalorieMode != .disabled)
+            if useAdaptiveCalorieTarget != shouldBeAdaptive {
+                useAdaptiveCalorieTarget = shouldBeAdaptive
+            }
+        }
+    }
+    
+    var calorieBudgetStyle: CalorieBudgetStyle = .fixedWeekly {
+        didSet {
+            UserDefaults.standard.set(calorieBudgetStyle.rawValue, forKey: "calorieBudgetStyle")
+        }
+    }
+    
+    var weekStartDay: WeekStartDay = .monday {
+        didSet {
+            UserDefaults.standard.set(weekStartDay.rawValue, forKey: "weekStartDay")
+        }
+    }
+
+    var preservedMacroOption: PreservedMacroOption = .none {
+        didSet {
+            UserDefaults.standard.set(preservedMacroOption.rawValue, forKey: "preservedMacroOption")
+            if useAdaptiveCalorieTarget {
+                recalculateMacrosOnly()
+                saveOrUpdateTodayTargetLog()
+            }
+        }
+    }
+
     var useAdaptiveCalorieTarget: Bool = false {
         didSet {
             UserDefaults.standard.set(useAdaptiveCalorieTarget, forKey: "useAdaptiveCalorieTarget")
             
             if useAdaptiveCalorieTarget && !oldValue {
-                // Save current target settings when turning adaptive target ON
-                preAdaptiveCalorieTarget = dailyCalorieTarget
-                preAdaptiveProteinTarget = proteinTarget
-                preAdaptiveCarbsTarget = carbsTarget
-                preAdaptiveFatTarget = fatTarget
+                if adaptiveCalorieMode == .disabled {
+                    adaptiveCalorieMode = .weightTrend
+                }
+                if preAdaptiveCalorieTarget == 0 {
+                    preAdaptiveCalorieTarget = dailyCalorieTarget
+                    preAdaptiveProteinTarget = proteinTarget
+                    preAdaptiveCarbsTarget = carbsTarget
+                    preAdaptiveFatTarget = fatTarget
+                }
+                recalculateMacrosOnly()
             } else if !useAdaptiveCalorieTarget && oldValue {
-                // Restore pre-adaptive target settings when turning adaptive target OFF
+                if adaptiveCalorieMode != .disabled {
+                    adaptiveCalorieMode = .disabled
+                }
                 dailyCalorieTarget = preAdaptiveCalorieTarget
                 proteinTarget = preAdaptiveProteinTarget
                 carbsTarget = preAdaptiveCarbsTarget
@@ -311,6 +408,34 @@ final class SettingsManager {
         self.startWeight = UserDefaults.standard.double(forKey: "startWeight")
         self.startDate = UserDefaults.standard.object(forKey: "startDate") as? Date ?? Date()
         self.useAdaptiveCalorieTarget = UserDefaults.standard.bool(forKey: "useAdaptiveCalorieTarget")
+        if let modeRaw = UserDefaults.standard.string(forKey: "adaptiveCalorieMode"),
+           let mode = AdaptiveCalorieMode(rawValue: modeRaw) {
+            self.adaptiveCalorieMode = mode
+        } else {
+            self.adaptiveCalorieMode = self.useAdaptiveCalorieTarget ? .weightTrend : .disabled
+        }
+        
+        if let styleRaw = UserDefaults.standard.string(forKey: "calorieBudgetStyle"),
+           let style = CalorieBudgetStyle(rawValue: styleRaw) {
+            self.calorieBudgetStyle = style
+        } else {
+            self.calorieBudgetStyle = .fixedWeekly
+        }
+        
+        let savedWeekStart = UserDefaults.standard.integer(forKey: "weekStartDay")
+        if savedWeekStart >= 1 && savedWeekStart <= 7 {
+            self.weekStartDay = WeekStartDay(rawValue: savedWeekStart) ?? .monday
+        } else {
+            self.weekStartDay = .monday
+        }
+        
+        if let preservedRaw = UserDefaults.standard.string(forKey: "preservedMacroOption"),
+           let option = PreservedMacroOption(rawValue: preservedRaw) {
+            self.preservedMacroOption = option
+        } else {
+            self.preservedMacroOption = .none
+        }
+        
         self.lastTargetUpdateTime = UserDefaults.standard.object(forKey: "lastTargetUpdateTime") as? Date
         self.metabolicWindowDays = UserDefaults.standard.integer(forKey: "metabolicWindowDays")
         if self.metabolicWindowDays == 0 {
@@ -436,23 +561,81 @@ final class SettingsManager {
         saveOrUpdateTodayTargetLog()
     }
     
-    /// Recalculates macronutrient targets while preserving ratios
+    /// Recalculates macronutrient targets while preserving designated macro if configured
     func recalculateMacrosOnly() {
-        if let split = MacroSplit(rawValue: macroSplitType) {
-            if split != .custom {
-                let macros = split.calculateMacros(totalCalories: dailyCalorieTarget, bodyWeight: userWeight)
-                proteinTarget = macros.protein
-                carbsTarget = macros.carbs
-                fatTarget = macros.fat
-            } else {
-                // For custom setups, scale grams proportionally to preserve macro ratios
-                let currentMacroCalories = (proteinTarget * 4.0) + (carbsTarget * 4.0) + (fatTarget * 9.0)
-                guard currentMacroCalories > 0 else { return }
+        if useAdaptiveCalorieTarget {
+            let baseCalories = preAdaptiveCalorieTarget > 0 ? preAdaptiveCalorieTarget : dailyCalorieTarget
+            guard baseCalories > 0 else { return }
+            
+            switch preservedMacroOption {
+            case .none:
+                let baseProteinCal = preAdaptiveProteinTarget * 4.0
+                let baseCarbsCal = preAdaptiveCarbsTarget * 4.0
+                let baseFatCal = preAdaptiveFatTarget * 9.0
+                let totalBaseCal = (baseProteinCal + baseCarbsCal + baseFatCal) > 0 ? (baseProteinCal + baseCarbsCal + baseFatCal) : Double(baseCalories)
+                let scaleFactor = Double(dailyCalorieTarget) / totalBaseCal
+                proteinTarget = max(0, (preAdaptiveProteinTarget * scaleFactor).rounded())
+                carbsTarget = max(0, (preAdaptiveCarbsTarget * scaleFactor).rounded())
+                fatTarget = max(0, (preAdaptiveFatTarget * scaleFactor).rounded())
                 
-                let scaleFactor = Double(dailyCalorieTarget) / currentMacroCalories
-                proteinTarget = (proteinTarget * scaleFactor).rounded()
-                carbsTarget = (carbsTarget * scaleFactor).rounded()
-                fatTarget = (fatTarget * scaleFactor).rounded()
+            case .preserveProtein:
+                proteinTarget = preAdaptiveProteinTarget
+                let proteinCal = preAdaptiveProteinTarget * 4.0
+                let remainingCal = max(0, Double(dailyCalorieTarget) - proteinCal)
+                let baseCarbsCal = preAdaptiveCarbsTarget * 4.0
+                let baseFatCal = preAdaptiveFatTarget * 9.0
+                let baseOtherCal = baseCarbsCal + baseFatCal
+                if baseOtherCal > 0 {
+                    let carbsRatio = baseCarbsCal / baseOtherCal
+                    let fatRatio = baseFatCal / baseOtherCal
+                    carbsTarget = max(0, ((remainingCal * carbsRatio) / 4.0).rounded())
+                    fatTarget = max(0, ((remainingCal * fatRatio) / 9.0).rounded())
+                }
+                
+            case .preserveCarbs:
+                carbsTarget = preAdaptiveCarbsTarget
+                let carbsCal = preAdaptiveCarbsTarget * 4.0
+                let remainingCal = max(0, Double(dailyCalorieTarget) - carbsCal)
+                let baseProteinCal = preAdaptiveProteinTarget * 4.0
+                let baseFatCal = preAdaptiveFatTarget * 9.0
+                let baseOtherCal = baseProteinCal + baseFatCal
+                if baseOtherCal > 0 {
+                    let proteinRatio = baseProteinCal / baseOtherCal
+                    let fatRatio = baseFatCal / baseOtherCal
+                    proteinTarget = max(0, ((remainingCal * proteinRatio) / 4.0).rounded())
+                    fatTarget = max(0, ((remainingCal * fatRatio) / 9.0).rounded())
+                }
+                
+            case .preserveFat:
+                fatTarget = preAdaptiveFatTarget
+                let fatCal = preAdaptiveFatTarget * 9.0
+                let remainingCal = max(0, Double(dailyCalorieTarget) - fatCal)
+                let baseProteinCal = preAdaptiveProteinTarget * 4.0
+                let baseCarbsCal = preAdaptiveCarbsTarget * 4.0
+                let baseOtherCal = baseProteinCal + baseCarbsCal
+                if baseOtherCal > 0 {
+                    let proteinRatio = baseProteinCal / baseOtherCal
+                    let carbsRatio = baseCarbsCal / baseOtherCal
+                    proteinTarget = max(0, ((remainingCal * proteinRatio) / 4.0).rounded())
+                    carbsTarget = max(0, ((remainingCal * carbsRatio) / 4.0).rounded())
+                }
+            }
+        } else {
+            if let split = MacroSplit(rawValue: macroSplitType) {
+                if split != .custom {
+                    let macros = split.calculateMacros(totalCalories: dailyCalorieTarget, bodyWeight: userWeight)
+                    proteinTarget = macros.protein
+                    carbsTarget = macros.carbs
+                    fatTarget = macros.fat
+                } else {
+                    let currentMacroCalories = (proteinTarget * 4.0) + (carbsTarget * 4.0) + (fatTarget * 9.0)
+                    guard currentMacroCalories > 0 else { return }
+                    
+                    let scaleFactor = Double(dailyCalorieTarget) / currentMacroCalories
+                    proteinTarget = (proteinTarget * scaleFactor).rounded()
+                    carbsTarget = (carbsTarget * scaleFactor).rounded()
+                    fatTarget = (fatTarget * scaleFactor).rounded()
+                }
             }
         }
     }
@@ -464,8 +647,84 @@ final class SettingsManager {
 
 extension SettingsManager {
     func updateAdaptiveCalorieTarget(allEntries: [FoodEntry]) {
-        guard useAdaptiveCalorieTarget && targetWeight > 0 else { return }
+        guard useAdaptiveCalorieTarget && adaptiveCalorieMode != .disabled else { return }
         
+        switch adaptiveCalorieMode {
+        case .disabled:
+            return
+        case .weightTrend:
+            updateWeightTrendAdaptiveTarget(allEntries: allEntries)
+        case .calorieBudget:
+            updateCalorieBudgetAdaptiveTarget(allEntries: allEntries)
+        }
+    }
+    
+    private func updateCalorieBudgetAdaptiveTarget(allEntries: [FoodEntry]) {
+        let baseTarget = preAdaptiveCalorieTarget > 0 ? preAdaptiveCalorieTarget : dailyCalorieTarget
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        var suggested: Int = baseTarget
+        
+        switch calorieBudgetStyle {
+        case .fixedWeekly:
+            let weekStart = startOfWeek(for: today, weekStartDay: weekStartDay)
+            let daysElapsed = max(0, calendar.dateComponents([.day], from: weekStart, to: today).day ?? 0)
+            let daysRemaining = max(1, 7 - (daysElapsed % 7))
+            
+            let consumedThisWeek = allEntries.reduce(0) { sum, entry in
+                let entryDay = calendar.startOfDay(for: entry.timestamp)
+                if entryDay >= weekStart && entryDay < today {
+                    return sum + entry.calories
+                }
+                return sum
+            }
+            
+            let totalWeeklyBudget = baseTarget * 7
+            let remainingBudget = max(0, totalWeeklyBudget - consumedThisWeek)
+            let rawSuggested = Double(remainingBudget) / Double(daysRemaining)
+            
+            let minAllowed = Double(max(1200, baseTarget - 600))
+            let maxAllowed = Double(min(5000, baseTarget + 600))
+            suggested = Int(max(minAllowed, min(maxAllowed, rawSuggested)))
+            
+        case .rolling7Day:
+            guard let sixDaysAgo = calendar.date(byAdding: .day, value: -6, to: today) else { return }
+            
+            let past6DaysIntake = allEntries.reduce(0) { sum, entry in
+                let entryDay = calendar.startOfDay(for: entry.timestamp)
+                if entryDay >= sixDaysAgo && entryDay < today {
+                    return sum + entry.calories
+                }
+                return sum
+            }
+            
+            let total7DayBudget = baseTarget * 7
+            let rawSuggested = Double(total7DayBudget - past6DaysIntake)
+            
+            let minAllowed = Double(max(1200, baseTarget - 600))
+            let maxAllowed = Double(min(5000, baseTarget + 600))
+            suggested = Int(max(minAllowed, min(maxAllowed, rawSuggested)))
+        }
+        
+        let oldTarget = self.dailyCalorieTarget
+        DispatchQueue.main.async {
+            if suggested != self.dailyCalorieTarget || self.lastTargetUpdateTime == nil {
+                self.dailyCalorieTarget = suggested
+                self.recalculateMacrosOnly()
+                self.lastTargetUpdateTime = Date()
+                self.saveOrUpdateTodayTargetLog()
+                
+                if oldTarget > 0 && oldTarget != suggested {
+                    let changeType = suggested > oldTarget ? "increase" : "decrease"
+                    self.pendingTargetUpdateAlert = "Target updated from \(oldTarget) to \(suggested) cal based on your \(self.calorieBudgetStyle.rawValue) budget (\(changeType))"
+                }
+            }
+        }
+    }
+    
+    private func updateWeightTrendAdaptiveTarget(allEntries: [FoodEntry]) {
+        guard targetWeight > 0 else { return }
         let healthManager = HealthKitManager.shared
         guard healthManager.isAuthorized else { return }
         
@@ -518,24 +777,12 @@ extension SettingsManager {
                 
                 var targetDailyDeficit: Double = 0.0
                 if daysRemaining <= 0 {
-                    // Timeframe expired or target date is today
                     if self.targetWeight > self.startWeight {
-                        // Weight gain goal
-                        if currentWeight >= self.targetWeight {
-                            targetDailyDeficit = 0.0 // Goal achieved!
-                        } else {
-                            targetDailyDeficit = -300.0 // Safe default surplus of 300 calories/day
-                        }
+                        targetDailyDeficit = currentWeight >= self.targetWeight ? 0.0 : -300.0
                     } else {
-                        // Weight loss goal (or maintain)
-                        if currentWeight <= self.targetWeight {
-                            targetDailyDeficit = 0.0 // Goal achieved!
-                        } else {
-                            targetDailyDeficit = 500.0 // Safe default deficit of 500 calories/day
-                        }
+                        targetDailyDeficit = currentWeight <= self.targetWeight ? 0.0 : 500.0
                     }
                 } else {
-                    // Timeframe active
                     let weeksRemaining = max(1.0, Double(daysRemaining) / 7.0)
                     let weeklyLbsTarget = weightToLoseLbs / weeksRemaining
                     targetDailyDeficit = (weeklyLbsTarget * 3500.0) / 7.0
@@ -559,6 +806,20 @@ extension SettingsManager {
                 }
             }
         }
+    }
+    
+    /// Helper to find start of week for a given weekday
+    func startOfWeek(for date: Date, weekStartDay: WeekStartDay) -> Date {
+        let calendar = Calendar.current
+        var current = calendar.startOfDay(for: date)
+        for _ in 0..<7 {
+            if calendar.component(.weekday, from: current) == weekStartDay.rawValue {
+                return current
+            }
+            guard let prev = calendar.date(byAdding: .day, value: -1, to: current) else { break }
+            current = prev
+        }
+        return calendar.startOfDay(for: date)
     }
     
     /// Helper to calculate weight change dynamically with endpoint smoothing scaled to window size
