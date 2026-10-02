@@ -173,6 +173,48 @@ struct CalorieTargetSetupView: View {
             }
             .task {
                 let settings = SettingsManager.shared
+                let baseCal = (settings.useAdaptiveCalorieTarget && settings.preAdaptiveCalorieTarget > 0) ? settings.preAdaptiveCalorieTarget : settings.dailyCalorieTarget
+                manualCalories = baseCal
+                
+                let currentSplit = MacroSplit(rawValue: settings.macroSplitType) ?? .balanced
+                macroSplit = currentSplit
+                
+                let weightVal = Double(weight) ?? 0.0
+                let bodyWeightKg: Double
+                if weightVal > 0 {
+                    bodyWeightKg = useMetric ? weightVal : weightVal.lbsToKg
+                } else if settings.userWeight > 0 {
+                    bodyWeightKg = settings.userWeight
+                } else {
+                    bodyWeightKg = 70.0
+                }
+                
+                let baseProtein: Double
+                let baseCarbs: Double
+                let baseFat: Double
+                
+                if currentSplit == .custom && settings.useAdaptiveCalorieTarget && settings.preAdaptiveProteinTarget > 0 {
+                    baseProtein = settings.preAdaptiveProteinTarget
+                    baseCarbs = settings.preAdaptiveCarbsTarget
+                    baseFat = settings.preAdaptiveFatTarget
+                } else {
+                    let macros = currentSplit.calculateMacros(totalCalories: baseCal, bodyWeight: bodyWeightKg)
+                    baseProtein = macros.protein
+                    baseCarbs = macros.carbs
+                    baseFat = macros.fat
+                }
+                
+                customProteinGrams = baseProtein
+                customCarbsGrams = baseCarbs
+                customFatGrams = baseFat
+                
+                let totalCals = Double(baseCal)
+                if totalCals > 0 {
+                    customProteinPercent = (baseProtein * 4 / totalCals) * 100
+                    customCarbsPercent = (baseCarbs * 4 / totalCals) * 100
+                    customFatPercent = (baseFat * 9 / totalCals) * 100
+                }
+                
                 if settings.targetWeight > 0 {
                     targetWeight = settings.useMetricSystem ? String(format: "%.1f", settings.targetWeight) : String(format: "%.1f", settings.targetWeight.kgToLbs)
                 }
@@ -792,6 +834,7 @@ struct CalorieTargetSetupView: View {
                             grams: $customProteinGrams,
                             color: .red,
                             caloriesPerGram: 4,
+                            maxGrams: 500,
                             onChanged: { updatePercentsFromGrams() }
                         )
                         
@@ -800,6 +843,7 @@ struct CalorieTargetSetupView: View {
                             grams: $customCarbsGrams,
                             color: .blue,
                             caloriesPerGram: 4,
+                            maxGrams: 600,
                             onChanged: { updatePercentsFromGrams() }
                         )
                         
@@ -808,6 +852,7 @@ struct CalorieTargetSetupView: View {
                             grams: $customFatGrams,
                             color: .yellow,
                             caloriesPerGram: 9,
+                            maxGrams: 250,
                             onChanged: { updatePercentsFromGrams() }
                         )
                         
@@ -989,13 +1034,24 @@ struct CalorieTargetSetupView: View {
                     
                     if isEditing {
                         HStack(spacing: 4) {
-                            TextField("30", text: $textInput)
+                            TextField("\(Int(percentage))", text: $textInput)
                                 .keyboardType(.numberPad)
                                 .multilineTextAlignment(.trailing)
                                 .font(.headline)
                                 .foregroundStyle(color)
                                 .frame(width: 50)
                                 .focused($isFocused)
+                                .onChange(of: textInput) { _, newValue in
+                                    if let val = Double(newValue), val >= 10 && val <= 60 {
+                                        percentage = val
+                                        onChanged?()
+                                    }
+                                }
+                                .onChange(of: isFocused) { _, focused in
+                                    if !focused {
+                                        commitEdit()
+                                    }
+                                }
                                 .onSubmit {
                                     commitEdit()
                                 }
@@ -1062,6 +1118,7 @@ struct CalorieTargetSetupView: View {
         @Binding var grams: Double
         let color: Color
         let caloriesPerGram: Double
+        var maxGrams: Double = 600
         var onChanged: (() -> Void)?
         
         @State private var isEditing = false
@@ -1085,13 +1142,24 @@ struct CalorieTargetSetupView: View {
                     
                     if isEditing {
                         HStack(spacing: 4) {
-                            TextField("150", text: $textInput)
+                            TextField("\(Int(grams))", text: $textInput)
                                 .keyboardType(.numberPad)
                                 .multilineTextAlignment(.trailing)
                                 .font(.headline)
                                 .foregroundStyle(color)
                                 .frame(width: 60)
                                 .focused($isFocused)
+                                .onChange(of: textInput) { _, newValue in
+                                    if let val = Double(newValue), val >= 0 && val <= 1000 {
+                                        grams = val
+                                        onChanged?()
+                                    }
+                                }
+                                .onChange(of: isFocused) { _, focused in
+                                    if !focused {
+                                        commitEdit()
+                                    }
+                                }
                                 .onSubmit {
                                     commitEdit()
                                 }
@@ -1128,7 +1196,7 @@ struct CalorieTargetSetupView: View {
                     }
                 }
                 
-                Slider(value: $grams, in: 20...300, step: 5)
+                Slider(value: $grams, in: 0...maxGrams, step: 5)
                     .tint(color)
                     .disabled(isEditing)
                     .onChange(of: grams) { _, _ in
@@ -1144,7 +1212,7 @@ struct CalorieTargetSetupView: View {
         }
         
         private func commitEdit() {
-            if let value = Double(textInput), value >= 20 && value <= 300 {
+            if let value = Double(textInput), value >= 0 && value <= 1000 {
                 grams = value
                 onChanged?()
             }
@@ -1327,13 +1395,10 @@ struct CalorieTargetSetupView: View {
             finalCalories = setupMode == .guided ? calculatedCalories : manualCalories
         }
         
-        // Save calorie target
+        // Save profile data
         if setupMode == .guided {
-            dailyCalorieTarget = finalCalories
-            settings.dailyCalorieTarget = finalCalories
             settings.isManualTarget = false
             
-            // Save profile data
             if let ageInt = Int(age), let weightDouble = Double(weight) {
                 settings.userAge = ageInt
                 let weightKg = useMetric ? weightDouble : weightDouble.lbsToKg
@@ -1376,32 +1441,31 @@ struct CalorieTargetSetupView: View {
                     settings.useAdaptiveCalorieTarget = (adaptiveMode != .disabled)
                 }
             }
-            
-            // Calculate and save macros
-            let macros = calculateFinalMacros(calories: finalCalories)
-            proteinTarget = macros.protein
-            carbsTarget = macros.carbs
-            fatTarget = macros.fat
-            settings.proteinTarget = macros.protein
-            settings.carbsTarget = macros.carbs
-            settings.fatTarget = macros.fat
         } else {
-            dailyCalorieTarget = finalCalories
-            settings.dailyCalorieTarget = finalCalories
             settings.isManualTarget = true
-            
-            let macros = calculateFinalMacros(calories: finalCalories)
-            proteinTarget = macros.protein
-            carbsTarget = macros.carbs
-            fatTarget = macros.fat
-            settings.proteinTarget = macros.protein
-            settings.carbsTarget = macros.carbs
-            settings.fatTarget = macros.fat
         }
+        
+        let macros = calculateFinalMacros(calories: finalCalories)
         
         // Save macro split preference
         settings.macroSplitType = macroSplit.rawValue
         settings.lastTargetUpdateTime = Date()
+        
+        // Save baseline targets cleanly
+        settings.updateBaseTargets(
+            calories: finalCalories,
+            protein: macros.protein,
+            carbs: macros.carbs,
+            fat: macros.fat
+        )
+        
+        // Sync bindings
+        dailyCalorieTarget = settings.dailyCalorieTarget
+        proteinTarget = settings.proteinTarget
+        carbsTarget = settings.carbsTarget
+        fatTarget = settings.fatTarget
+        
+        settings.saveOrUpdateTodayTargetLog()
         
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)

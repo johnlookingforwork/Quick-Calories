@@ -959,10 +959,11 @@ struct StatsView: View {
             syncWeightAndHistory()
         }
         .sheet(isPresented: $showWeightGoalSetup, onDismiss: {
-            settings.dailyCalorieTarget = calorieTarget
-            settings.proteinTarget = proteinTarget
-            settings.carbsTarget = carbsTarget
-            settings.fatTarget = fatTarget
+            calorieTarget = settings.dailyCalorieTarget
+            proteinTarget = settings.proteinTarget
+            carbsTarget = settings.carbsTarget
+            fatTarget = settings.fatTarget
+            settings.updateAdaptiveCalorieTarget(allEntries: allEntries)
             settings.saveOrUpdateTodayTargetLog()
         }) {
             CalorieTargetSetupView(

@@ -116,7 +116,7 @@ enum MacroSplit: String, CaseIterable, Identifiable {
         case .balanced:
             return "1.6g protein/kg, balanced carbs & fats"
         case .highProtein:
-            return "2.0g protein/kg, moderate carbs"
+            return "1.0g protein/lb body weight, moderate carbs"
         case .lowCarb:
             return "1.8g protein/kg, low carbs, high fats"
         case .custom:
@@ -127,7 +127,7 @@ enum MacroSplit: String, CaseIterable, Identifiable {
     var proteinPerKg: Double {
         switch self {
         case .balanced: return 1.6      // General population
-        case .highProtein: return 2.0   // Athletes/muscle building
+        case .highProtein: return 2.20462 // 1.0g per 1lb body weight
         case .lowCarb: return 1.8       // Low carb diets
         case .custom: return 0          // User defined
         }

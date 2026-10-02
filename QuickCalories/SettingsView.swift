@@ -398,7 +398,13 @@ struct SettingsView: View {
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showTargetSetup) {
+        .sheet(isPresented: $showTargetSetup, onDismiss: {
+            calorieTarget = settings.dailyCalorieTarget
+            proteinTarget = settings.proteinTarget
+            carbsTarget = settings.carbsTarget
+            fatTarget = settings.fatTarget
+            settings.updateAdaptiveCalorieTarget(allEntries: foodEntries)
+        }) {
             CalorieTargetSetupView(
                 dailyCalorieTarget: $calorieTarget,
                 proteinTarget: $proteinTarget,
