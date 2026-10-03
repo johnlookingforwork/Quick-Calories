@@ -62,6 +62,8 @@ enum PreservedMacroOption: String, CaseIterable, Identifiable, Codable {
 final class SettingsManager {
     static let shared = SettingsManager()
     
+    private var isInitializing = true
+    
     var modelContainer: ModelContainer? = nil
     
     @MainActor
@@ -73,6 +75,7 @@ final class SettingsManager {
     
     var dailyCalorieTarget: Int = 2000 {
         didSet {
+            guard !isInitializing else { return }
             UserDefaults.standard.set(dailyCalorieTarget, forKey: "dailyCalorieTarget")
             if !useAdaptiveCalorieTarget {
                 preAdaptiveCalorieTarget = dailyCalorieTarget
@@ -82,6 +85,7 @@ final class SettingsManager {
     
     var proteinTarget: Double = 150.0 {
         didSet {
+            guard !isInitializing else { return }
             UserDefaults.standard.set(proteinTarget, forKey: "proteinTarget")
             if !useAdaptiveCalorieTarget {
                 preAdaptiveProteinTarget = proteinTarget
@@ -91,6 +95,7 @@ final class SettingsManager {
     
     var carbsTarget: Double = 200.0 {
         didSet {
+            guard !isInitializing else { return }
             UserDefaults.standard.set(carbsTarget, forKey: "carbsTarget")
             if !useAdaptiveCalorieTarget {
                 preAdaptiveCarbsTarget = carbsTarget
@@ -100,6 +105,7 @@ final class SettingsManager {
     
     var fatTarget: Double = 67.0 {
         didSet {
+            guard !isInitializing else { return }
             UserDefaults.standard.set(fatTarget, forKey: "fatTarget")
             if !useAdaptiveCalorieTarget {
                 preAdaptiveFatTarget = fatTarget
@@ -208,28 +214,46 @@ final class SettingsManager {
     
     var adaptiveCalorieMode: AdaptiveCalorieMode = .disabled {
         didSet {
+            guard !isInitializing else { return }
+            guard adaptiveCalorieMode != oldValue else { return }
             UserDefaults.standard.set(adaptiveCalorieMode.rawValue, forKey: "adaptiveCalorieMode")
-            let shouldBeAdaptive = (adaptiveCalorieMode != .disabled)
-            if useAdaptiveCalorieTarget != shouldBeAdaptive {
-                useAdaptiveCalorieTarget = shouldBeAdaptive
+            UserDefaults.standard.set(adaptiveCalorieMode != .disabled, forKey: "useAdaptiveCalorieTarget")
+            
+            if oldValue == .disabled && adaptiveCalorieMode != .disabled {
+                if preAdaptiveCalorieTarget == 0 {
+                    preAdaptiveCalorieTarget = dailyCalorieTarget
+                    preAdaptiveProteinTarget = proteinTarget
+                    preAdaptiveCarbsTarget = carbsTarget
+                    preAdaptiveFatTarget = fatTarget
+                }
+                recalculateMacrosOnly()
+            } else if oldValue != .disabled && adaptiveCalorieMode == .disabled {
+                dailyCalorieTarget = preAdaptiveCalorieTarget
+                proteinTarget = preAdaptiveProteinTarget
+                carbsTarget = preAdaptiveCarbsTarget
+                fatTarget = preAdaptiveFatTarget
+                saveOrUpdateTodayTargetLog()
             }
         }
     }
     
     var calorieBudgetStyle: CalorieBudgetStyle = .fixedWeekly {
         didSet {
+            guard !isInitializing else { return }
             UserDefaults.standard.set(calorieBudgetStyle.rawValue, forKey: "calorieBudgetStyle")
         }
     }
     
     var weekStartDay: WeekStartDay = .monday {
         didSet {
+            guard !isInitializing else { return }
             UserDefaults.standard.set(weekStartDay.rawValue, forKey: "weekStartDay")
         }
     }
 
     var preservedMacroOption: PreservedMacroOption = .none {
         didSet {
+            guard !isInitializing else { return }
             UserDefaults.standard.set(preservedMacroOption.rawValue, forKey: "preservedMacroOption")
             if useAdaptiveCalorieTarget {
                 recalculateMacrosOnly()
@@ -238,30 +262,17 @@ final class SettingsManager {
         }
     }
 
-    var useAdaptiveCalorieTarget: Bool = false {
-        didSet {
-            UserDefaults.standard.set(useAdaptiveCalorieTarget, forKey: "useAdaptiveCalorieTarget")
-            
-            if useAdaptiveCalorieTarget && !oldValue {
+    var useAdaptiveCalorieTarget: Bool {
+        get {
+            adaptiveCalorieMode != .disabled
+        }
+        set {
+            if newValue {
                 if adaptiveCalorieMode == .disabled {
                     adaptiveCalorieMode = .weightTrend
                 }
-                if preAdaptiveCalorieTarget == 0 {
-                    preAdaptiveCalorieTarget = dailyCalorieTarget
-                    preAdaptiveProteinTarget = proteinTarget
-                    preAdaptiveCarbsTarget = carbsTarget
-                    preAdaptiveFatTarget = fatTarget
-                }
-                recalculateMacrosOnly()
-            } else if !useAdaptiveCalorieTarget && oldValue {
-                if adaptiveCalorieMode != .disabled {
-                    adaptiveCalorieMode = .disabled
-                }
-                dailyCalorieTarget = preAdaptiveCalorieTarget
-                proteinTarget = preAdaptiveProteinTarget
-                carbsTarget = preAdaptiveCarbsTarget
-                fatTarget = preAdaptiveFatTarget
-                saveOrUpdateTodayTargetLog()
+            } else {
+                adaptiveCalorieMode = .disabled
             }
         }
     }
@@ -407,12 +418,26 @@ final class SettingsManager {
         self.targetDate = UserDefaults.standard.object(forKey: "targetDate") as? Date ?? Date().addingTimeInterval(60 * 60 * 24 * 30)
         self.startWeight = UserDefaults.standard.double(forKey: "startWeight")
         self.startDate = UserDefaults.standard.object(forKey: "startDate") as? Date ?? Date()
-        self.useAdaptiveCalorieTarget = UserDefaults.standard.bool(forKey: "useAdaptiveCalorieTarget")
+        
+        // Load preAdaptive baseline targets BEFORE adaptiveCalorieMode
+        self.preAdaptiveCalorieTarget = UserDefaults.standard.integer(forKey: "preAdaptiveCalorieTarget")
+        self.preAdaptiveProteinTarget = UserDefaults.standard.double(forKey: "preAdaptiveProteinTarget")
+        self.preAdaptiveCarbsTarget = UserDefaults.standard.double(forKey: "preAdaptiveCarbsTarget")
+        self.preAdaptiveFatTarget = UserDefaults.standard.double(forKey: "preAdaptiveFatTarget")
+        
+        if self.preAdaptiveCalorieTarget == 0 {
+            self.preAdaptiveCalorieTarget = self.dailyCalorieTarget
+            self.preAdaptiveProteinTarget = self.proteinTarget
+            self.preAdaptiveCarbsTarget = self.carbsTarget
+            self.preAdaptiveFatTarget = self.fatTarget
+        }
+
         if let modeRaw = UserDefaults.standard.string(forKey: "adaptiveCalorieMode"),
            let mode = AdaptiveCalorieMode(rawValue: modeRaw) {
             self.adaptiveCalorieMode = mode
         } else {
-            self.adaptiveCalorieMode = self.useAdaptiveCalorieTarget ? .weightTrend : .disabled
+            let legacyUseAdaptive = UserDefaults.standard.bool(forKey: "useAdaptiveCalorieTarget")
+            self.adaptiveCalorieMode = legacyUseAdaptive ? .weightTrend : .disabled
         }
         
         if let styleRaw = UserDefaults.standard.string(forKey: "calorieBudgetStyle"),
@@ -445,18 +470,6 @@ final class SettingsManager {
         self.pendingTargetUpdateAlert = UserDefaults.standard.string(forKey: "pendingTargetUpdateAlert")
         
         self.autoCloseFoodMenu = UserDefaults.standard.object(forKey: "autoCloseFoodMenu") != nil ? UserDefaults.standard.bool(forKey: "autoCloseFoodMenu") : true
-        
-        self.preAdaptiveCalorieTarget = UserDefaults.standard.integer(forKey: "preAdaptiveCalorieTarget")
-        self.preAdaptiveProteinTarget = UserDefaults.standard.double(forKey: "preAdaptiveProteinTarget")
-        self.preAdaptiveCarbsTarget = UserDefaults.standard.double(forKey: "preAdaptiveCarbsTarget")
-        self.preAdaptiveFatTarget = UserDefaults.standard.double(forKey: "preAdaptiveFatTarget")
-        
-        if self.preAdaptiveCalorieTarget == 0 {
-            self.preAdaptiveCalorieTarget = self.dailyCalorieTarget
-            self.preAdaptiveProteinTarget = self.proteinTarget
-            self.preAdaptiveCarbsTarget = self.carbsTarget
-            self.preAdaptiveFatTarget = self.fatTarget
-        }
         
         let savedWeightDays = UserDefaults.standard.integer(forKey: "weightAverageDays")
         self.weightAverageDays = savedWeightDays > 0 ? savedWeightDays : 5
@@ -497,6 +510,8 @@ final class SettingsManager {
         if !self.hasCompletedOnboarding && savedCalories > 0 {
             self.hasCompletedOnboarding = true
         }
+        
+        self.isInitializing = false
     }
     
     func checkAndResetDailyCount() {

@@ -1427,7 +1427,6 @@ struct CalorieTargetSetupView: View {
                     settings.adaptiveCalorieMode = adaptiveMode
                     settings.calorieBudgetStyle = calorieBudgetStyle
                     settings.weekStartDay = weekStartDay
-                    settings.useAdaptiveCalorieTarget = (adaptiveMode != .disabled)
                     
                     // Set starting weight to the initial weight entered
                     settings.startWeight = weightKg
@@ -1438,7 +1437,6 @@ struct CalorieTargetSetupView: View {
                     settings.adaptiveCalorieMode = adaptiveMode
                     settings.calorieBudgetStyle = calorieBudgetStyle
                     settings.weekStartDay = weekStartDay
-                    settings.useAdaptiveCalorieTarget = (adaptiveMode != .disabled)
                 }
             }
         } else {
