@@ -400,7 +400,7 @@ final class SettingsManager {
     }
     
     func shouldPerformScheduledRefresh() -> Bool {
-        guard isScheduledRefreshEnabled else { return false }
+        guard isScheduledRefreshEnabled && useAdaptiveCalorieTarget else { return false }
         let calendar = Calendar.current
         let now = Date()
         

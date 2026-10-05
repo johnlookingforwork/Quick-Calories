@@ -236,40 +236,42 @@ struct SettingsView: View {
                     }
                 }
                 
-                NavigationLink {
-                    CalorieTargetRefreshView()
-                } label: {
-                    HStack {
-                        Label("Daily Refresh Schedule", systemImage: "clock.arrow.circlepath")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Text(settings.isScheduledRefreshEnabled ? settings.formattedRefreshTime : "Manual Only")
-                            .foregroundStyle(.secondary)
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                
-                Button {
-                    manualRefreshTarget()
-                } label: {
-                    HStack {
-                        if isRefreshingTarget {
-                            ProgressView()
-                                .padding(.trailing, 4)
-                        } else {
-                            Image(systemName: "arrow.triangle.2.circlepath")
+                if settings.adaptiveCalorieMode != .disabled {
+                    NavigationLink {
+                        CalorieTargetRefreshView()
+                    } label: {
+                        HStack {
+                            Label("Daily Refresh Schedule", systemImage: "clock.arrow.circlepath")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text(settings.isScheduledRefreshEnabled ? settings.formattedRefreshTime : "Manual Only")
+                                .foregroundStyle(.secondary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                        Text("Refresh Target Now")
-                            .fontWeight(.medium)
-                        Spacer()
-                        Text(settings.formattedLastRefresh)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                     }
+                    
+                    Button {
+                        manualRefreshTarget()
+                    } label: {
+                        HStack {
+                            if isRefreshingTarget {
+                                ProgressView()
+                                    .padding(.trailing, 4)
+                            } else {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                            }
+                            Text("Refresh Target Now")
+                                .fontWeight(.medium)
+                            Spacer()
+                            Text(settings.formattedLastRefresh)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .disabled(isRefreshingTarget)
                 }
-                .disabled(isRefreshingTarget)
             } header: {
                 Text("Adaptive Calorie Target")
             } footer: {

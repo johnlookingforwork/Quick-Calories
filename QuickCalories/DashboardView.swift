@@ -142,6 +142,7 @@ struct DashboardView: View {
                         workoutCalories: displayDateWorkoutCalories,
                         targets: displayDateTargets,
                         dietMode: settings.dietMode,
+                        isAdaptive: settings.useAdaptiveCalorieTarget,
                         onRefreshTarget: manualRefreshDashboardTarget
                     )
                     .padding(.horizontal)
@@ -494,6 +495,7 @@ struct DailyProgressView: View {
     let workoutCalories: Int
     let targets: (calories: Int, protein: Double, carbs: Double, fat: Double)
     let dietMode: DietMode
+    var isAdaptive: Bool = false
     var onRefreshTarget: (() -> Void)? = nil
 
     @State private var showingCaloriesEaten = false
@@ -567,7 +569,7 @@ struct DailyProgressView: View {
                             .fontWeight(.semibold)
                             .foregroundStyle(.secondary)
                         
-                        if let onRefresh = onRefreshTarget {
+                        if isAdaptive, let onRefresh = onRefreshTarget {
                             Button(action: onRefresh) {
                                 Image(systemName: "arrow.triangle.2.circlepath")
                                     .font(.system(size: 10, weight: .bold))
