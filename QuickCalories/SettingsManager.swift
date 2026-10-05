@@ -283,6 +283,148 @@ final class SettingsManager {
         }
     }
     
+    // Scheduled Refresh Properties
+    var isScheduledRefreshEnabled: Bool = true {
+        didSet {
+            guard !isInitializing else { return }
+            UserDefaults.standard.set(isScheduledRefreshEnabled, forKey: "isScheduledRefreshEnabled")
+        }
+    }
+    
+    var scheduledRefreshHour: Int = 6 {
+        didSet {
+            guard !isInitializing else { return }
+            UserDefaults.standard.set(scheduledRefreshHour, forKey: "scheduledRefreshHour")
+        }
+    }
+    
+    var scheduledRefreshMinute: Int = 0 {
+        didSet {
+            guard !isInitializing else { return }
+            UserDefaults.standard.set(scheduledRefreshMinute, forKey: "scheduledRefreshMinute")
+        }
+    }
+    
+    var lastScheduledRefreshDate: Date? = nil {
+        didSet {
+            guard !isInitializing else { return }
+            UserDefaults.standard.set(lastScheduledRefreshDate, forKey: "lastScheduledRefreshDate")
+        }
+    }
+    
+    var scheduledRefreshTime: Date {
+        get {
+            let calendar = Calendar.current
+            var components = calendar.dateComponents([.year, .month, .day], from: Date())
+            components.hour = scheduledRefreshHour
+            components.minute = scheduledRefreshMinute
+            components.second = 0
+            return calendar.date(from: components) ?? Date()
+        }
+        set {
+            let calendar = Calendar.current
+            let components = calendar.dateComponents([.hour, .minute], from: newValue)
+            scheduledRefreshHour = components.hour ?? 6
+            scheduledRefreshMinute = components.minute ?? 0
+        }
+    }
+    
+    var formattedRefreshTime: String {
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.hour = scheduledRefreshHour
+        components.minute = scheduledRefreshMinute
+        if let date = calendar.date(from: components) {
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            return formatter.string(from: date)
+        }
+        return String(format: "%02d:%02d", scheduledRefreshHour, scheduledRefreshMinute)
+    }
+    
+    var nextScheduledRefreshDate: Date? {
+        guard isScheduledRefreshEnabled else { return nil }
+        let calendar = Calendar.current
+        let now = Date()
+        var components = calendar.dateComponents([.year, .month, .day], from: now)
+        components.hour = scheduledRefreshHour
+        components.minute = scheduledRefreshMinute
+        components.second = 0
+        guard let todayTarget = calendar.date(from: components) else { return nil }
+        
+        if now < todayTarget {
+            return todayTarget
+        } else {
+            return calendar.date(byAdding: .day, value: 1, to: todayTarget)
+        }
+    }
+    
+    var formattedNextRefresh: String {
+        guard let nextDate = nextScheduledRefreshDate else { return "Disabled" }
+        let calendar = Calendar.current
+        let timeFormatter = DateFormatter()
+        timeFormatter.timeStyle = .short
+        let timeString = timeFormatter.string(from: nextDate)
+        
+        if calendar.isDateInToday(nextDate) {
+            return "Today at \(timeString)"
+        } else if calendar.isDateInTomorrow(nextDate) {
+            return "Tomorrow at \(timeString)"
+        } else {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .short
+            dateFormatter.timeStyle = .short
+            return dateFormatter.string(from: nextDate)
+        }
+    }
+    
+    var formattedLastRefresh: String {
+        guard let lastDate = lastScheduledRefreshDate ?? lastTargetUpdateTime else {
+            return "Never"
+        }
+        let calendar = Calendar.current
+        let timeFormatter = DateFormatter()
+        timeFormatter.timeStyle = .short
+        let timeString = timeFormatter.string(from: lastDate)
+        
+        if calendar.isDateInToday(lastDate) {
+            return "Today at \(timeString)"
+        } else if calendar.isDateInYesterday(lastDate) {
+            return "Yesterday at \(timeString)"
+        } else {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .short
+            dateFormatter.timeStyle = .short
+            return dateFormatter.string(from: lastDate)
+        }
+    }
+    
+    func shouldPerformScheduledRefresh() -> Bool {
+        guard isScheduledRefreshEnabled else { return false }
+        let calendar = Calendar.current
+        let now = Date()
+        
+        var components = calendar.dateComponents([.year, .month, .day], from: now)
+        components.hour = scheduledRefreshHour
+        components.minute = scheduledRefreshMinute
+        components.second = 0
+        guard let todayTarget = calendar.date(from: components) else { return false }
+        
+        let mostRecentTrigger: Date
+        if now >= todayTarget {
+            mostRecentTrigger = todayTarget
+        } else {
+            guard let yesterdayTarget = calendar.date(byAdding: .day, value: -1, to: todayTarget) else { return false }
+            mostRecentTrigger = yesterdayTarget
+        }
+        
+        if let lastRefresh = lastScheduledRefreshDate {
+            return lastRefresh < mostRecentTrigger
+        }
+        
+        return true
+    }
+    
     var metabolicWindowDays: Int = 14 {
         didSet {
             UserDefaults.standard.set(metabolicWindowDays, forKey: "metabolicWindowDays")
@@ -462,6 +604,22 @@ final class SettingsManager {
         }
         
         self.lastTargetUpdateTime = UserDefaults.standard.object(forKey: "lastTargetUpdateTime") as? Date
+        
+        if UserDefaults.standard.object(forKey: "isScheduledRefreshEnabled") != nil {
+            self.isScheduledRefreshEnabled = UserDefaults.standard.bool(forKey: "isScheduledRefreshEnabled")
+        } else {
+            self.isScheduledRefreshEnabled = true
+        }
+        
+        if UserDefaults.standard.object(forKey: "scheduledRefreshHour") != nil {
+            self.scheduledRefreshHour = UserDefaults.standard.integer(forKey: "scheduledRefreshHour")
+        } else {
+            self.scheduledRefreshHour = 6
+        }
+        
+        self.scheduledRefreshMinute = UserDefaults.standard.integer(forKey: "scheduledRefreshMinute")
+        self.lastScheduledRefreshDate = UserDefaults.standard.object(forKey: "lastScheduledRefreshDate") as? Date
+        
         self.metabolicWindowDays = UserDefaults.standard.integer(forKey: "metabolicWindowDays")
         if self.metabolicWindowDays == 0 {
             self.metabolicWindowDays = 14
@@ -661,6 +819,104 @@ final class SettingsManager {
 }
 
 extension SettingsManager {
+    /// Checks if a scheduled refresh is due and performs it if needed.
+    func checkAndPerformScheduledRefreshIfNeeded(allEntries: [FoodEntry]) {
+        guard shouldPerformScheduledRefresh() else { return }
+        print("⏰ SettingsManager: Performing scheduled daily calorie refresh at \(Date())")
+        refreshCalorieTarget(allEntries: allEntries, force: false) { updated, message in
+            if updated {
+                print("✅ SettingsManager: Scheduled refresh completed: \(message)")
+            }
+        }
+    }
+    
+    /// Main entry point for scheduled or manual target refresh.
+    func refreshCalorieTarget(
+        allEntries: [FoodEntry],
+        force: Bool = false,
+        completion: ((_ updated: Bool, _ message: String) -> Void)? = nil
+    ) {
+        if !force && !shouldPerformScheduledRefresh() {
+            completion?(false, "Target is already up to date for today's schedule.")
+            return
+        }
+        
+        let now = Date()
+        let oldTarget = self.dailyCalorieTarget
+        
+        if useAdaptiveCalorieTarget && adaptiveCalorieMode != .disabled {
+            switch adaptiveCalorieMode {
+            case .disabled:
+                break
+                
+            case .calorieBudget:
+                updateCalorieBudgetAdaptiveTarget(allEntries: allEntries) { updated, newTarget in
+                    self.lastScheduledRefreshDate = now
+                    self.lastTargetUpdateTime = now
+                    let diff = newTarget - oldTarget
+                    let message: String
+                    if diff != 0 {
+                        let changeWord = diff > 0 ? "increased" : "decreased"
+                        message = "Target \(changeWord) to \(newTarget) cal based on your \(self.calorieBudgetStyle.rawValue) budget."
+                    } else {
+                        message = "Target confirmed at \(newTarget) cal based on your \(self.calorieBudgetStyle.rawValue) budget."
+                    }
+                    completion?(updated, message)
+                }
+                
+            case .weightTrend:
+                guard targetWeight > 0 else {
+                    self.lastScheduledRefreshDate = now
+                    self.lastTargetUpdateTime = now
+                    self.saveOrUpdateTodayTargetLog()
+                    completion?(false, "Target maintained at \(oldTarget) cal (set a weight goal to enable trend adjustments).")
+                    return
+                }
+                
+                let healthManager = HealthKitManager.shared
+                guard healthManager.isAuthorized else {
+                    self.lastScheduledRefreshDate = now
+                    self.lastTargetUpdateTime = now
+                    self.saveOrUpdateTodayTargetLog()
+                    completion?(false, "Target maintained at \(oldTarget) cal (Apple Health not connected).")
+                    return
+                }
+                
+                updateWeightTrendAdaptiveTarget(allEntries: allEntries) { updated, newTarget in
+                    self.lastScheduledRefreshDate = now
+                    self.lastTargetUpdateTime = now
+                    let diff = newTarget - oldTarget
+                    let message: String
+                    if diff != 0 {
+                        let changeWord = diff > 0 ? "increased" : "decreased"
+                        message = "Target \(changeWord) to \(newTarget) cal based on weight trend."
+                    } else {
+                        message = "Target confirmed at \(newTarget) cal based on weight trend."
+                    }
+                    completion?(updated, message)
+                }
+            }
+        } else {
+            // Adaptive target is disabled or manual
+            if hasProfileData && !isManualTarget {
+                let previousTarget = self.dailyCalorieTarget
+                recalculateFromProfile()
+                self.lastScheduledRefreshDate = now
+                self.lastTargetUpdateTime = now
+                let newTarget = self.dailyCalorieTarget
+                let message = newTarget != previousTarget
+                    ? "Target recalculated from profile: \(newTarget) cal."
+                    : "Target confirmed at \(newTarget) cal."
+                completion?(newTarget != previousTarget, message)
+            } else {
+                self.lastScheduledRefreshDate = now
+                self.lastTargetUpdateTime = now
+                saveOrUpdateTodayTargetLog()
+                completion?(false, "Target confirmed at \(self.dailyCalorieTarget) cal.")
+            }
+        }
+    }
+    
     func updateAdaptiveCalorieTarget(allEntries: [FoodEntry]) {
         guard useAdaptiveCalorieTarget && adaptiveCalorieMode != .disabled else { return }
         
@@ -674,7 +930,10 @@ extension SettingsManager {
         }
     }
     
-    private func updateCalorieBudgetAdaptiveTarget(allEntries: [FoodEntry]) {
+    func updateCalorieBudgetAdaptiveTarget(
+        allEntries: [FoodEntry],
+        completion: ((_ updated: Bool, _ suggested: Int) -> Void)? = nil
+    ) {
         let baseTarget = preAdaptiveCalorieTarget > 0 ? preAdaptiveCalorieTarget : dailyCalorieTarget
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -704,7 +963,10 @@ extension SettingsManager {
             suggested = Int(max(minAllowed, min(maxAllowed, rawSuggested)))
             
         case .rolling7Day:
-            guard let sixDaysAgo = calendar.date(byAdding: .day, value: -6, to: today) else { return }
+            guard let sixDaysAgo = calendar.date(byAdding: .day, value: -6, to: today) else {
+                completion?(false, self.dailyCalorieTarget)
+                return
+            }
             
             let past6DaysIntake = allEntries.reduce(0) { sum, entry in
                 let entryDay = calendar.startOfDay(for: entry.timestamp)
@@ -724,35 +986,56 @@ extension SettingsManager {
         
         let oldTarget = self.dailyCalorieTarget
         DispatchQueue.main.async {
-            if suggested != self.dailyCalorieTarget || self.lastTargetUpdateTime == nil {
+            let changed = (suggested != self.dailyCalorieTarget)
+            if changed || self.lastTargetUpdateTime == nil {
                 self.dailyCalorieTarget = suggested
                 self.recalculateMacrosOnly()
                 self.lastTargetUpdateTime = Date()
                 self.saveOrUpdateTodayTargetLog()
                 
-                if oldTarget > 0 && oldTarget != suggested {
+                if oldTarget > 0 && changed {
                     let changeType = suggested > oldTarget ? "increase" : "decrease"
                     self.pendingTargetUpdateAlert = "Target updated from \(oldTarget) to \(suggested) cal based on your \(self.calorieBudgetStyle.rawValue) budget (\(changeType))"
                 }
             }
+            completion?(changed, suggested)
         }
     }
     
-    private func updateWeightTrendAdaptiveTarget(allEntries: [FoodEntry]) {
-        guard targetWeight > 0 else { return }
+    func updateWeightTrendAdaptiveTarget(
+        allEntries: [FoodEntry],
+        completion: ((_ updated: Bool, _ suggested: Int) -> Void)? = nil
+    ) {
+        guard targetWeight > 0 else {
+            completion?(false, self.dailyCalorieTarget)
+            return
+        }
         let healthManager = HealthKitManager.shared
-        guard healthManager.isAuthorized else { return }
+        guard healthManager.isAuthorized else {
+            completion?(false, self.dailyCalorieTarget)
+            return
+        }
         
         healthManager.fetchLatestWeight { currentWeight in
             healthManager.fetchWeightHistory(daysLimit: 30) { history in
-                guard let history = history, let currentWeight = currentWeight else { return }
+                guard let history = history, let currentWeight = currentWeight else {
+                    DispatchQueue.main.async {
+                        completion?(false, self.dailyCalorieTarget)
+                    }
+                    return
+                }
                 
                 let calendar = Calendar.current
                 let today = calendar.startOfDay(for: Date())
                 
                 let windowDays = self.metabolicWindowDays
                 let changeKg = self.calculateWeightChange(history: history, windowDays: windowDays)
-                guard let changeKg = changeKg else { return }
+                guard let changeKg = changeKg else {
+                    DispatchQueue.main.async {
+                        completion?(false, self.dailyCalorieTarget)
+                    }
+                    return
+                }
                 
                 // Get calorie average over windowDays starting from yesterday (excluding today's incomplete logs):
                 var totals: [Date: Int] = [:]
@@ -768,13 +1051,22 @@ extension SettingsManager {
                     }
                 }
                 let activeDaysCal = totals.values.filter { $0 >= 100 }
-                guard !activeDaysCal.isEmpty else { return }
+                guard !activeDaysCal.isEmpty else {
+                    DispatchQueue.main.async {
+                        completion?(false, self.dailyCalorieTarget)
+                    }
+                    return
+                }
                 let avgCalorieIntake = Double(activeDaysCal.reduce(0, +)) / Double(activeDaysCal.count)
                 
                 // TDEE calculation:
                 let sortedDates = history.keys.sorted()
-                let oldestDate = sortedDates.first!
-                let newestDate = sortedDates.last!
+                guard let oldestDate = sortedDates.first, let newestDate = sortedDates.last else {
+                    DispatchQueue.main.async {
+                        completion?(false, self.dailyCalorieTarget)
+                    }
+                    return
+                }
                 let daysGap = Double(calendar.dateComponents([.day], from: oldestDate, to: newestDate).day ?? windowDays)
                 let days = max(Double(windowDays == 7 ? 3 : 7), daysGap)
                 
@@ -807,17 +1099,19 @@ extension SettingsManager {
                 
                 let oldTarget = self.dailyCalorieTarget
                 DispatchQueue.main.async {
-                    if suggested != self.dailyCalorieTarget || self.lastTargetUpdateTime == nil {
+                    let changed = (suggested != self.dailyCalorieTarget)
+                    if changed || self.lastTargetUpdateTime == nil {
                         self.dailyCalorieTarget = suggested
                         self.recalculateMacrosOnly()
                         self.lastTargetUpdateTime = Date()
                         self.saveOrUpdateTodayTargetLog()
                         
-                        if oldTarget > 0 && oldTarget != suggested {
+                        if oldTarget > 0 && changed {
                             let changeType = suggested > oldTarget ? "increase" : "decrease"
                             self.pendingTargetUpdateAlert = "From \(oldTarget) to \(suggested) due to changes in weight \(changeType)"
                         }
                     }
+                    completion?(changed, suggested)
                 }
             }
         }

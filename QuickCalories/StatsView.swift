@@ -512,23 +512,25 @@ struct StatsView: View {
                         
                         if settings.useAdaptiveCalorieTarget {
                             HStack(alignment: .top, spacing: 6) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .foregroundStyle(.blue)
                                     .padding(.top, 1)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Auto-updating daily target enabled.")
-                                        .font(.caption2)
-                                        .foregroundStyle(.green)
-                                        .fontWeight(.medium)
-                                    if let lastUpdate = settings.lastTargetUpdateTime {
-                                        Text("Last adjusted: \(lastUpdate.formatted(date: .abbreviated, time: .shortened))")
-                                            .font(.system(size: 10))
-                                            .foregroundStyle(.secondary)
+                                    if settings.isScheduledRefreshEnabled {
+                                        Text("Daily refresh scheduled for \(settings.formattedRefreshTime)")
+                                            .font(.caption2)
+                                            .foregroundStyle(.primary)
+                                            .fontWeight(.medium)
                                     } else {
-                                        Text("Last adjusted: recently")
-                                            .font(.system(size: 10))
+                                        Text("Manual target refresh only")
+                                            .font(.caption2)
                                             .foregroundStyle(.secondary)
+                                            .fontWeight(.medium)
                                     }
+                                    
+                                    Text("Last refreshed: \(settings.formattedLastRefresh)")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
                                 }
                             }
                             .padding(.top, 2)
@@ -998,8 +1000,6 @@ struct StatsView: View {
                                     settings.startWeight = oldestWeight
                                 }
                             }
-                            
-                            settings.updateAdaptiveCalorieTarget(allEntries: allEntries)
                         }
                     }
                 }

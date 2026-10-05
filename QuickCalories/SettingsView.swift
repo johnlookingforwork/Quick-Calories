@@ -31,6 +31,7 @@ struct SettingsView: View {
     @State private var versionTapCount = 0
     @State private var weightAverageDays = 5
     @State private var autoCloseFoodMenu = true
+    @State private var isRefreshingTarget = false
     
     private var healthKitManager = HealthKitManager.shared
     private var settings = SettingsManager.shared
@@ -234,19 +235,54 @@ struct SettingsView: View {
                         Text("30 Days").tag(30)
                     }
                 }
+                
+                NavigationLink {
+                    CalorieTargetRefreshView()
+                } label: {
+                    HStack {
+                        Label("Daily Refresh Schedule", systemImage: "clock.arrow.circlepath")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Text(settings.isScheduledRefreshEnabled ? settings.formattedRefreshTime : "Manual Only")
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Button {
+                    manualRefreshTarget()
+                } label: {
+                    HStack {
+                        if isRefreshingTarget {
+                            ProgressView()
+                                .padding(.trailing, 4)
+                        } else {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                        }
+                        Text("Refresh Target Now")
+                            .fontWeight(.medium)
+                        Spacer()
+                        Text(settings.formattedLastRefresh)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(isRefreshingTarget)
             } header: {
                 Text("Adaptive Calorie Target")
             } footer: {
                 switch settings.adaptiveCalorieMode {
                 case .disabled:
-                    Text("Your calorie target remains fixed unless manually adjusted.")
+                    Text("Your calorie target remains fixed unless manually adjusted or recalculated.")
                 case .weightTrend:
-                    Text("Auto-adjusts target dynamically based on your actual scale weight changes and calorie intake over time.")
+                    Text("Refreshes daily at \(settings.formattedRefreshTime) (or manually) based on your weight trend and TDEE.")
                 case .calorieBudget:
                     if settings.calorieBudgetStyle == .fixedWeekly {
-                        Text("Paces your remaining calories for the week based on what you ate earlier, resetting every \(settings.weekStartDay.name). Macros scale according to your preservation preference.")
+                        Text("Refreshes daily at \(settings.formattedRefreshTime) (or manually) pacing your weekly budget, resetting every \(settings.weekStartDay.name).")
                     } else {
-                        Text("Paces your target daily based on a rolling 7-day calorie average. Macros scale according to your preservation preference.")
+                        Text("Refreshes daily at \(settings.formattedRefreshTime) (or manually) pacing your target on a rolling 7-day calorie average.")
                     }
                 }
             }
@@ -494,6 +530,23 @@ struct SettingsView: View {
         
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
+    }
+    
+    private func manualRefreshTarget() {
+        guard !isRefreshingTarget else { return }
+        isRefreshingTarget = true
+        
+        let impact = UIImpactFeedbackGenerator(style: .medium)
+        impact.impactOccurred()
+        
+        settings.refreshCalorieTarget(allEntries: foodEntries, force: true) { _, _ in
+            DispatchQueue.main.async {
+                self.isRefreshingTarget = false
+                self.loadSettings()
+                let notify = UINotificationFeedbackGenerator()
+                notify.notificationOccurred(.success)
+            }
+        }
     }
 }
 

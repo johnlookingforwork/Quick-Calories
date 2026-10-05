@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct DashboardView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
     @Query private var allEntries: [FoodEntry]
     @Query private var allWorkouts: [WorkoutEntry]
@@ -140,7 +141,8 @@ struct DashboardView: View {
                         todayTotals: displayDateTotals,
                         workoutCalories: displayDateWorkoutCalories,
                         targets: displayDateTargets,
-                        dietMode: settings.dietMode
+                        dietMode: settings.dietMode,
+                        onRefreshTarget: manualRefreshDashboardTarget
                     )
                     .padding(.horizontal)
                     .contentShape(Rectangle())
@@ -358,8 +360,20 @@ struct DashboardView: View {
                 .padding(.bottom, 20)
             }
             .task {
-                SettingsManager.shared.updateAdaptiveCalorieTarget(allEntries: allEntries)
+                SettingsManager.shared.checkAndPerformScheduledRefreshIfNeeded(allEntries: allEntries)
                 DailyTargetLog.saveOrUpdateTodayTargetLog(modelContext: modelContext)
+            }
+            .refreshable {
+                await withCheckedContinuation { continuation in
+                    settings.refreshCalorieTarget(allEntries: allEntries, force: true) { _, _ in
+                        continuation.resume()
+                    }
+                }
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active {
+                    SettingsManager.shared.checkAndPerformScheduledRefreshIfNeeded(allEntries: allEntries)
+                }
             }
             .alert("Calorie Target Updated", isPresented: $showingTargetUpdateAlert) {
                 Button("Got it", role: .cancel) {
@@ -379,6 +393,18 @@ struct DashboardView: View {
                     targetUpdateAlertMessage = message
                     showingTargetUpdateAlert = true
                 }
+            }
+        }
+    }
+    
+    private func manualRefreshDashboardTarget() {
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+        
+        settings.refreshCalorieTarget(allEntries: allEntries, force: true) { updated, message in
+            DispatchQueue.main.async {
+                let notify = UINotificationFeedbackGenerator()
+                notify.notificationOccurred(.success)
             }
         }
     }
@@ -468,6 +494,7 @@ struct DailyProgressView: View {
     let workoutCalories: Int
     let targets: (calories: Int, protein: Double, carbs: Double, fat: Double)
     let dietMode: DietMode
+    var onRefreshTarget: (() -> Void)? = nil
 
     @State private var showingCaloriesEaten = false
 
@@ -534,10 +561,22 @@ struct DailyProgressView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text("Target: \(targets.calories) cal")
-                        .font(.caption2)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Text("Target: \(targets.calories) cal")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.secondary)
+                        
+                        if let onRefresh = onRefreshTarget {
+                            Button(action: onRefresh) {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Refresh Calorie Target")
+                        }
+                    }
                 }
             }
             

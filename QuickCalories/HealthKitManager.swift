@@ -80,7 +80,6 @@ class HealthKitManager: ObservableObject {
                 // Update weight in SettingsManager automatically to keep BMR/TDEE synchronized
                 if valueInKg > 0 {
                     SettingsManager.shared.userWeight = valueInKg
-                    SettingsManager.shared.recalculateFromProfile()
                 }
                 completion(valueInKg)
             }
